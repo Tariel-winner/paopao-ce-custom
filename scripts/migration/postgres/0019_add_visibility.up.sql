@@ -1,0 +1,2 @@
+--ALTER TABLE p_post ADD COLUMN visibility SMALLINT NOT NULL DEFAULT 0;
+--CREATE INDEX idx_post_visibility ON p_post(visibility); 

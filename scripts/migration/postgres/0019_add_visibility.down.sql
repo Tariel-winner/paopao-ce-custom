@@ -1,0 +1,2 @@
+--DROP INDEX IF EXISTS idx_post_visibility;
+--ALTER TABLE p_post DROP COLUMN visibility; 

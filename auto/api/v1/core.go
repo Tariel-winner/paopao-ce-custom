@@ -9,6 +9,7 @@ import (
 
 	"github.com/alimy/mir/v4"
 	"github.com/gin-gonic/gin"
+	"github.com/rocboss/paopao-ce/internal/core/ms"
 	"github.com/rocboss/paopao-ce/internal/model/web"
 )
 
@@ -33,7 +34,33 @@ type Core interface {
 	ReadMessage(*web.ReadMessageReq) mir.Error
 	GetMessages(*web.GetMessagesReq) (*web.GetMessagesResp, mir.Error)
 	GetUserInfo(*web.UserInfoReq) (*web.UserInfoResp, mir.Error)
+	GetUserOnlineStatus(*web.UserOnlineStatusReq) (*web.UserOnlineStatusResp, mir.Error) // Added this line
+	GetCentrifugoToken(*web.CentrifugoTokenReq) (*web.CentrifugoTokenResp, mir.Error)
 	SyncSearchIndex(*web.SyncSearchIndexReq) mir.Error
+
+	// Room endpoints
+	ListRooms(*web.RoomListReq) (*web.RoomListResp, mir.Error)
+	CreateRoom(*web.CreateRoomReq) (*web.Room, mir.Error)
+	UpdateRoom(*web.UpdateRoomReq) mir.Error
+	GetUserRoom(*web.GetUserRoomReq) (*web.Room, mir.Error)
+	GetRoomByID(*web.GetRoomByIDReq) (*web.Room, mir.Error)
+	GetRoomByHostID(*web.GetRoomByHostIDReq) (*web.Room, mir.Error)
+
+	// Category endpoints
+	GetAllCategories() web.CategoryListResp
+
+	// User management endpoints
+	SetUserCategories(*web.SetUserCategoriesReq) (*web.SetUserCategoriesResp, mir.Error)
+
+	// User Reaction endpoints
+	CreateUserReaction(*web.CreateUserReactionReq) (*web.CreateUserReactionResp, mir.Error)
+	GetUserReactionsCounts(*web.GetUserReactionsReq) (*web.GetUserReactionsResp, mir.Error)
+	GetUserReactionUsers(*web.GetUserReactionUsersReq) (*web.GetUserReactionUsersResp, mir.Error)
+	GetUserGivenReactionsCounts(*web.GetUserGivenReactionsReq) (*web.GetUserGivenReactionsResp, mir.Error)
+	GetUserGivenReactionUsers(*web.GetUserGivenReactionUsersReq) (*web.GetUserGivenReactionUsersResp, mir.Error)
+	GetReactionsToTwoUsers(*web.GetReactionsToTwoUsersReq) (*web.GetReactionsToTwoUsersResp, mir.Error)
+	GetGlobalReactionTimeline(*web.GetGlobalReactionTimelineReq) (*web.GetGlobalReactionTimelineResp, mir.Error)
+	GetUserReactionTimeline(*web.GetUserReactionTimelineReq) (*web.GetUserReactionTimelineResp, mir.Error)
 
 	mustEmbedUnimplementedCoreServant()
 }
@@ -261,6 +288,36 @@ func RegisterCoreServant(e *gin.Engine, s Core) {
 		resp, err := s.GetUserInfo(req)
 		s.Render(c, resp, err)
 	})
+	router.Handle("GET", "/user/online-status", func(c *gin.Context) {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+		}
+		req := new(web.UserOnlineStatusReq)
+		var bv _binding_ = req
+		if err := bv.Bind(c); err != nil {
+			s.Render(c, nil, err)
+			return
+		}
+		resp, err := s.GetUserOnlineStatus(req)
+		s.Render(c, resp, err)
+	})
+	router.Handle("GET", "/centrifugo/token", func(c *gin.Context) {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+		}
+		req := new(web.CentrifugoTokenReq)
+		var bv _binding_ = req
+		if err := bv.Bind(c); err != nil {
+			s.Render(c, nil, err)
+			return
+		}
+		resp, err := s.GetCentrifugoToken(req)
+		s.Render(c, resp, err)
+	})
 	router.Handle("GET", "/sync/index", func(c *gin.Context) {
 		select {
 		case <-c.Request.Context().Done():
@@ -273,6 +330,252 @@ func RegisterCoreServant(e *gin.Engine, s Core) {
 			return
 		}
 		s.Render(c, nil, s.SyncSearchIndex(req))
+	})
+
+	// Room endpoints
+	router.Handle("GET", "/rooms", func(c *gin.Context) {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+		}
+		req := new(web.RoomListReq)
+		var bv _binding_ = req
+		if err := bv.Bind(c); err != nil {
+			s.Render(c, nil, err)
+			return
+		}
+		// Get user ID from context for category prioritization
+		req.User = &ms.User{
+			Model: &ms.Model{
+				ID: c.GetInt64("UID"),
+			},
+		}
+		resp, err := s.ListRooms(req)
+		s.Render(c, resp, err)
+	})
+	router.Handle("POST", "/rooms", func(c *gin.Context) {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+		}
+		req := new(web.CreateRoomReq)
+		var bv _binding_ = req
+		if err := bv.Bind(c); err != nil {
+			s.Render(c, nil, err)
+			return
+		}
+		resp, err := s.CreateRoom(req)
+		s.Render(c, resp, err)
+	})
+	router.Handle("PUT", "/rooms/:id", func(c *gin.Context) {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+		}
+		req := new(web.UpdateRoomReq)
+		var bv _binding_ = req
+		if err := bv.Bind(c); err != nil {
+			s.Render(c, nil, err)
+			return
+		}
+		s.Render(c, nil, s.UpdateRoom(req))
+	})
+	router.Handle("GET", "/rooms/user", func(c *gin.Context) {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+		}
+		req := new(web.GetUserRoomReq)
+		var bv _binding_ = req
+		if err := bv.Bind(c); err != nil {
+			s.Render(c, nil, err)
+			return
+		}
+		resp, err := s.GetUserRoom(req)
+		s.Render(c, resp, err)
+	})
+	router.Handle("GET", "/rooms/:id", func(c *gin.Context) {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+		}
+		req := new(web.GetRoomByIDReq)
+		var bv _binding_ = req
+		if err := bv.Bind(c); err != nil {
+			s.Render(c, nil, err)
+			return
+		}
+		resp, err := s.GetRoomByID(req)
+		s.Render(c, resp, err)
+	})
+	router.Handle("GET", "/rooms/host/:hostId", func(c *gin.Context) {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+		}
+		req := new(web.GetRoomByHostIDReq)
+		var bv _binding_ = req
+		if err := bv.Bind(c); err != nil {
+			s.Render(c, nil, err)
+			return
+		}
+		resp, err := s.GetRoomByHostID(req)
+		s.Render(c, resp, err)
+	})
+
+	// Category endpoints
+	router.Handle("GET", "/categories", func(c *gin.Context) {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+		}
+		resp := s.GetAllCategories()
+		s.Render(c, resp, nil)
+	})
+
+	// User management endpoints
+	router.Handle("POST", "/user/categories", func(c *gin.Context) {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+		}
+		req := new(web.SetUserCategoriesReq)
+		if err := s.Bind(c, req); err != nil {
+			s.Render(c, nil, err)
+			return
+		}
+		resp, err := s.SetUserCategories(req)
+		s.Render(c, resp, err)
+	})
+
+	// User Reaction endpoints
+	router.Handle("POST", "/user/reaction", func(c *gin.Context) {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+		}
+		req := new(web.CreateUserReactionReq)
+		var bv _binding_ = req
+		if err := bv.Bind(c); err != nil {
+			s.Render(c, nil, err)
+			return
+		}
+		resp, err := s.CreateUserReaction(req)
+		s.Render(c, resp, err)
+	})
+	router.Handle("GET", "/user/reactions", func(c *gin.Context) {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+		}
+		req := new(web.GetUserReactionsReq)
+		var bv _binding_ = req
+		if err := bv.Bind(c); err != nil {
+			s.Render(c, nil, err)
+			return
+		}
+		resp, err := s.GetUserReactionsCounts(req)
+		s.Render(c, resp, err)
+	})
+	router.Handle("GET", "/user/reaction/users", func(c *gin.Context) {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+		}
+		req := new(web.GetUserReactionUsersReq)
+		var bv _binding_ = req
+		if err := bv.Bind(c); err != nil {
+			s.Render(c, nil, err)
+			return
+		}
+		resp, err := s.GetUserReactionUsers(req)
+		s.Render(c, resp, err)
+	})
+	router.Handle("GET", "/user/given-reactions", func(c *gin.Context) {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+		}
+		req := new(web.GetUserGivenReactionsReq)
+		var bv _binding_ = req
+		if err := bv.Bind(c); err != nil {
+			s.Render(c, nil, err)
+			return
+		}
+		resp, err := s.GetUserGivenReactionsCounts(req)
+		s.Render(c, resp, err)
+	})
+	router.Handle("GET", "/user/given-reaction/users", func(c *gin.Context) {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+		}
+		req := new(web.GetUserGivenReactionUsersReq)
+		var bv _binding_ = req
+		if err := bv.Bind(c); err != nil {
+			s.Render(c, nil, err)
+			return
+		}
+		resp, err := s.GetUserGivenReactionUsers(req)
+		s.Render(c, resp, err)
+	})
+	router.Handle("GET", "/user/reactions/to-two-users", func(c *gin.Context) {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+		}
+		req := new(web.GetReactionsToTwoUsersReq)
+		var bv _binding_ = req
+		if err := bv.Bind(c); err != nil {
+			s.Render(c, nil, err)
+			return
+		}
+		resp, err := s.GetReactionsToTwoUsers(req)
+		s.Render(c, resp, err)
+	})
+	router.Handle("GET", "/user/reactions/timeline/global", func(c *gin.Context) {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+		}
+		req := new(web.GetGlobalReactionTimelineReq)
+		var bv _binding_ = req
+		if err := bv.Bind(c); err != nil {
+			s.Render(c, nil, err)
+			return
+		}
+		resp, err := s.GetGlobalReactionTimeline(req)
+		s.Render(c, resp, err)
+	})
+	router.Handle("GET", "/user/reactions/timeline/user", func(c *gin.Context) {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+		}
+		req := new(web.GetUserReactionTimelineReq)
+		var bv _binding_ = req
+		if err := bv.Bind(c); err != nil {
+			s.Render(c, nil, err)
+			return
+		}
+		resp, err := s.GetUserReactionTimeline(req)
+		s.Render(c, resp, err)
 	})
 }
 
@@ -343,8 +646,83 @@ func (UnimplementedCoreServant) GetUserInfo(req *web.UserInfoReq) (*web.UserInfo
 	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
 }
 
+func (UnimplementedCoreServant) GetUserOnlineStatus(req *web.UserOnlineStatusReq) (*web.UserOnlineStatusResp, mir.Error) {
+	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
+}
+
+func (UnimplementedCoreServant) GetCentrifugoToken(req *web.CentrifugoTokenReq) (*web.CentrifugoTokenResp, mir.Error) {
+	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
+}
+
 func (UnimplementedCoreServant) SyncSearchIndex(req *web.SyncSearchIndexReq) mir.Error {
 	return mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
+}
+
+// Room endpoints
+func (UnimplementedCoreServant) ListRooms(req *web.RoomListReq) (*web.RoomListResp, mir.Error) {
+	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
+}
+
+func (UnimplementedCoreServant) CreateRoom(req *web.CreateRoomReq) (*web.Room, mir.Error) {
+	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
+}
+
+func (UnimplementedCoreServant) UpdateRoom(req *web.UpdateRoomReq) mir.Error {
+	return mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
+}
+
+func (UnimplementedCoreServant) GetUserRoom(req *web.GetUserRoomReq) (*web.Room, mir.Error) {
+	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
+}
+
+func (UnimplementedCoreServant) GetRoomByID(req *web.GetRoomByIDReq) (*web.Room, mir.Error) {
+	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
+}
+
+func (UnimplementedCoreServant) GetRoomByHostID(req *web.GetRoomByHostIDReq) (*web.Room, mir.Error) {
+	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
+}
+
+// Category endpoints
+func (UnimplementedCoreServant) GetAllCategories() web.CategoryListResp {
+	return web.CategoryListResp{Categories: []*web.Category{}}
+}
+
+func (UnimplementedCoreServant) SetUserCategories(req *web.SetUserCategoriesReq) (*web.SetUserCategoriesResp, mir.Error) {
+	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
+}
+
+// User Reaction endpoints
+func (UnimplementedCoreServant) CreateUserReaction(req *web.CreateUserReactionReq) (*web.CreateUserReactionResp, mir.Error) {
+	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
+}
+
+func (UnimplementedCoreServant) GetUserReactions(req *web.GetUserReactionsReq) (*web.GetUserReactionsResp, mir.Error) {
+	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
+}
+
+func (UnimplementedCoreServant) GetUserReactionUsers(req *web.GetUserReactionUsersReq) (*web.GetUserReactionUsersResp, mir.Error) {
+	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
+}
+
+func (UnimplementedCoreServant) GetUserGivenReactions(req *web.GetUserGivenReactionsReq) (*web.GetUserGivenReactionsResp, mir.Error) {
+	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
+}
+
+func (UnimplementedCoreServant) GetUserGivenReactionUsers(req *web.GetUserGivenReactionUsersReq) (*web.GetUserGivenReactionUsersResp, mir.Error) {
+	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
+}
+
+func (UnimplementedCoreServant) GetReactionsToTwoUsers(req *web.GetReactionsToTwoUsersReq) (*web.GetReactionsToTwoUsersResp, mir.Error) {
+	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
+}
+
+func (UnimplementedCoreServant) GetGlobalReactionTimeline(req *web.GetGlobalReactionTimelineReq) (*web.GetGlobalReactionTimelineResp, mir.Error) {
+	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
+}
+
+func (UnimplementedCoreServant) GetUserReactionTimeline(req *web.GetUserReactionTimelineReq) (*web.GetUserReactionTimelineResp, mir.Error) {
+	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
 }
 
 func (UnimplementedCoreServant) mustEmbedUnimplementedCoreServant() {}

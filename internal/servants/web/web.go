@@ -36,6 +36,7 @@ func RouteWeb(e *gin.Engine) {
 	api.RegisterCoreServant(e, newCoreSrv(ds, _oss, _wc))
 	api.RegisterRelaxServant(e, newRelaxSrv(ds, _wc), newRelaxChain())
 	api.RegisterLooseServant(e, newLooseSrv(ds, _ac))
+	api.RegisterWebhookServant(e, newWebhookSrv(ds))
 	api.RegisterPrivServant(e, newPrivSrv(ds, _oss), newPrivChain())
 	api.RegisterPubServant(e, newPubSrv(ds))
 	api.RegisterTrendsServant(e, newTrendsSrv(ds))

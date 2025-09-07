@@ -30,7 +30,7 @@ func (p *PostStar) Get(db *gorm.DB) (*PostStar, error) {
 		db = db.Where(tn+"post_id = ?", p.PostID)
 	}
 	if p.UserID > 0 {
-		db = db.Where(tn+"user_id = ?", p.UserID)
+		db = db.Where(tn+"CAST(user_id->0 AS bigint) = ?", p.UserID)
 	}
 
 	db = db.Joins("Post").Where("visibility <> ? OR (visibility = ? AND ? = ?)", PostVisitPrivate, PostVisitPrivate, clause.Column{Table: "Post", Name: "user_id"}, p.UserID).Order(clause.OrderByColumn{Column: clause.Column{Table: "Post", Name: "id"}, Desc: true})
@@ -59,7 +59,7 @@ func (p *PostStar) List(db *gorm.DB, conditions *ConditionsT, typ cs.RelationTyp
 		db = db.Offset(offset).Limit(limit)
 	}
 	if p.UserID > 0 {
-		db = db.Where(tn+"user_id = ?", p.UserID)
+		db = db.Where(tn+"CAST(user_id->0 AS bigint) = ?", p.UserID)
 	}
 	for k, v := range *conditions {
 		if k == "ORDER" {
@@ -90,7 +90,7 @@ func (p *PostStar) Count(db *gorm.DB, typ cs.RelationTyp, conditions *Conditions
 		db = db.Where(tn+"post_id = ?", p.PostID)
 	}
 	if p.UserID > 0 {
-		db = db.Where(tn+"user_id = ?", p.UserID)
+		db = db.Where(tn+"CAST(user_id->0 AS bigint) = ?", p.UserID)
 	}
 	for k, v := range *conditions {
 		if k != "ORDER" {

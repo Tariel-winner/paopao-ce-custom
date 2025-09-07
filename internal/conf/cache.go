@@ -26,6 +26,7 @@ const (
 	PrefixUserTweets         = "paopao:usertweets:"
 	PrefixUnreadmsg          = "paopao:unreadmsg:"
 	PrefixOnlineUser         = "paopao:onlineuser:"
+	PrefixUserLocation       = "paopao:userlocation:"
 	PrefixIdxTweetsNewest    = "paopao:index:tweets:newest:"
 	PrefixIdxTweetsHots      = "paopao:index:tweets:hots:"
 	PrefixIdxTweetsFollowing = "paopao:index:tweets:following:"
@@ -50,6 +51,7 @@ var (
 	KeyFollowingTweets   cache.KeyPool[string]
 	KeyUnreadMsg         cache.KeyPool[int64]
 	KeyOnlineUser        cache.KeyPool[int64]
+	KeyUserLocation      cache.KeyPool[int64]
 	KeyUserInfoById      cache.KeyPool[int64]
 	KeyUserInfoByName    cache.KeyPool[string]
 	KeyUserProfileByName cache.KeyPool[string]
@@ -67,6 +69,7 @@ func initCacheKeyPool() {
 	KeyFollowingTweets = strKeyPool(poolSize, PrefixFollowingTweets)
 	KeyUnreadMsg = intKeyPool[int64](poolSize, PrefixUnreadmsg)
 	KeyOnlineUser = intKeyPool[int64](poolSize, PrefixOnlineUser)
+	KeyUserLocation = intKeyPool[int64](poolSize, PrefixUserLocation)
 	KeyUserInfoById = intKeyPool[int64](poolSize, PrefixUserInfoById)
 	KeyUserInfoByName = strKeyPool(poolSize, PrefixUserInfoByName)
 	KeyUserProfileByName = strKeyPool(poolSize, prefixUserProfileByName)

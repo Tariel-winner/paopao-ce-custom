@@ -5,3 +5,14 @@ custom
 *Dockerfile*
 web/node_modules
 web/src-tauri/target
+paopao-ce
+*.log
+*.tar
+*.gz
+*.zip
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out

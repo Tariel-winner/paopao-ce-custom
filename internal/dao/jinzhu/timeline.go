@@ -41,7 +41,7 @@ func (s *shipIndexSrv) IndexPosts(user *ms.User, offset int, limit int) (*ms.Ind
 		friendIds, _ := s.ams.BeFriendIds(user.ID)
 		friendIds = append(friendIds, user.ID)
 		args := []any{dbr.PostVisitPublic, dbr.PostVisitPrivate, user.ID, dbr.PostVisitFriend, friendIds}
-		predicates["visibility = ? OR (visibility = ? AND user_id = ?) OR (visibility = ? AND user_id IN ?)"] = args
+		predicates["visibility = ? OR (visibility = ? AND CAST(user_id->0 AS bigint) = ?) OR (visibility = ? AND CAST(user_id->0 AS bigint) IN ?)"] = args
 	}
 
 	posts, err := (&dbr.Post{}).Fetch(s.db, predicates, offset, limit)

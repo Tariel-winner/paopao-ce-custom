@@ -35,12 +35,26 @@ type DataService interface {
 	// 用户服务
 	UserManageService
 	ContactManageService
+	DeviceManageService
 	FollowingManageService
 	UserRelationService
 
 	// 安全服务
 	SecurityService
 	AttachmentCheckService
+
+	// 房间服务
+	RoomService
+	
+	// 分类服务
+	CategoryService
+	
+	// Session mapping methods
+	SaveSessionMapping(roomID, sessionID, peerID, userID string) error
+	GetUserIDFromSession(roomID, sessionID, peerID string) (string, error)
+	
+	// User online status
+	IsUserOnline(userID int64) bool
 }
 
 // WebDataServantA Web数据服务集成(版本A)

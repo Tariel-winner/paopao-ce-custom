@@ -152,7 +152,7 @@ func (s *cacheIndexSrv) handleIndexAction(action *core.IndexAction) {
 	switch act {
 	case core.IdxActCreatePost, core.IdxActDeletePost:
 		if post.Visibility == core.PostVisitPrivate {
-			s.deleteCacheByUserId(post.UserID, true)
+			s.deleteCacheByUserId(post.GetHostID(), true)
 			return
 		}
 	}
@@ -160,9 +160,9 @@ func (s *cacheIndexSrv) handleIndexAction(action *core.IndexAction) {
 	// 如果在s.preventDuration时间内就清除所有缓存，否则只清除自个儿的缓存
 	// TODO: 需要优化只清除受影响的缓存，后续完善
 	if time.Since(s.lastCacheResetTime) > s.preventDuration {
-		s.deleteCacheByUserId(post.UserID, false)
+		s.deleteCacheByUserId(post.GetHostID(), false)
 	} else {
-		s.deleteCacheByUserId(post.UserID, true)
+		s.deleteCacheByUserId(post.GetHostID(), true)
 	}
 }
 

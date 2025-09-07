@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/rocboss/paopao-ce/internal/core"
+	"github.com/rocboss/paopao-ce/internal/core/cs"
 	"github.com/rocboss/paopao-ce/internal/core/ms"
 	"github.com/rocboss/paopao-ce/internal/dao/jinzhu/dbr"
 	"github.com/sirupsen/logrus"
@@ -270,4 +271,101 @@ func (s *contactManageSrv) IsFriend(userId int64, friendId int64) bool {
 		return true
 	}
 	return false
+}
+
+// UploadPhoneContacts uploads iPhone contacts and matches them with existing app users
+func (s *contactManageSrv) UploadPhoneContacts(userID int64, contacts []cs.PhoneContact) (int64, int64, error) {
+	db := s.db.Begin()
+	defer func() {
+		if err := recover(); err != nil {
+			db.Rollback()
+		}
+	}()
+
+	var uploaded int64
+	var matched int64
+	now := time.Now().Unix()
+
+	// Upload contacts to p_user_phone_contacts table
+	for _, contact := range contacts {
+		phoneContact := &dbr.UserPhoneContact{
+			UserId:       userID,
+			ContactName:  contact.Name,
+			ContactPhone: contact.Phone,
+			ContactEmail: contact.Email,
+			IsMatched:    false,
+			CreatedOn:    now,
+			ModifiedOn:   now,
+		}
+
+		if err := phoneContact.Create(db); err != nil {
+			db.Rollback()
+			return 0, 0, err
+		}
+		uploaded++
+	}
+
+	// Try to match contacts with existing app users
+	matched, err := s.matchPhoneContacts(db, userID)
+	if err != nil {
+		db.Rollback()
+		return uploaded, 0, err
+	}
+
+	if err := db.Commit().Error; err != nil {
+		return uploaded, 0, err
+	}
+
+	return uploaded, matched, nil
+}
+
+// MatchPhoneContacts matches iPhone contacts with existing app users by phone number
+func (s *contactManageSrv) MatchPhoneContacts(userID int64) (int64, error) {
+	db := s.db.Begin()
+	defer func() {
+		if err := recover(); err != nil {
+			db.Rollback()
+		}
+	}()
+
+	matched, err := s.matchPhoneContacts(db, userID)
+	if err != nil {
+		db.Rollback()
+		return 0, err
+	}
+
+	if err := db.Commit().Error; err != nil {
+		return 0, err
+	}
+
+	return matched, nil
+}
+
+// matchPhoneContacts internal method to match contacts by phone number
+func (s *contactManageSrv) matchPhoneContacts(db *gorm.DB, userID int64) (int64, error) {
+	var matched int64
+
+	// Get all unmatched contacts for this user
+	var phoneContacts []dbr.UserPhoneContact
+	if err := db.Where("user_id = ? AND is_matched = ?", userID, false).Find(&phoneContacts).Error; err != nil {
+		return 0, err
+	}
+
+	for _, phoneContact := range phoneContacts {
+		// Try to find app user with matching phone number
+		var appUser dbr.User
+		if err := db.Where("phone = ? AND is_del = ?", phoneContact.ContactPhone, 0).First(&appUser).Error; err == nil {
+			// Found matching user, update the contact
+			phoneContact.IsMatched = true
+			phoneContact.MatchedUserID = &appUser.ID
+			phoneContact.ModifiedOn = time.Now().Unix()
+
+			if err := phoneContact.Update(db); err != nil {
+				return matched, err
+			}
+			matched++
+		}
+	}
+
+	return matched, nil
 }

@@ -26,15 +26,15 @@ func (s *eventCacheIndexSrv) SendAction(act core.IdxAct, post *ms.Post) {
 			CollectionCount: post.CollectionCount,
 			ShareCount:      post.ShareCount,
 		})
-		OnExpireIndexTweetEvent(post.UserID)
+		OnExpireIndexTweetEvent(post.GetHostID())
 	case core.IdxActCreatePost:
 		err = s.tms.AddTweetMetric(post.ID)
-		OnExpireIndexTweetEvent(post.UserID)
+		OnExpireIndexTweetEvent(post.GetHostID())
 	case core.IdxActDeletePost:
 		err = s.tms.DeleteTweetMetric(post.ID)
-		OnExpireIndexTweetEvent(post.UserID)
+		OnExpireIndexTweetEvent(post.GetHostID())
 	case core.IdxActStickPost, core.IdxActVisiblePost:
-		OnExpireIndexTweetEvent(post.UserID)
+		OnExpireIndexTweetEvent(post.GetHostID())
 	}
 	if err != nil {
 		logrus.Errorf("eventCacheIndexSrv.SendAction(%s) occurs error: %s", act, err)

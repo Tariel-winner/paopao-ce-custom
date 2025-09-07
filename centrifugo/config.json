@@ -1,0 +1,37 @@
+{
+  "token_hmac_secret_key": "paopao-centrifugo-secret-key-2024",
+  "admin_password": "paopao-admin-secret-2024",
+  "admin_secret": "paopao-admin-secret-2024",
+  "api_key": "paopao-api-key-2024",
+  "anonymous": false,
+  "publish": true,
+  "watch": true,
+  "presence": true,
+  "history_size": 10,
+  "history_ttl": "300s",
+  "engine": "memory",
+  "websocket": true,
+  "log_level": "debug",
+  "allow_subscribe_for_client": true,
+  "allow_publish_for_anonymous": false,
+  "allow_publish_for_client": true,
+  "allow_subscribe_for_anonymous": false,
+  "admin": true,
+  "admin_web": true,
+  "user_subscribe_to_personal": true,
+  "namespaces": [
+    {
+      "name": "user",
+      "presence": true,
+      "publish": true,
+      "watch": true,
+      "history_size": 10,
+      "history_ttl": "300s",
+      "allow_subscribe_for_client": true,
+      "allow_publish_for_client": true,
+      "allow_presence_for_client": true,
+      "presence_for_subscribe": true,
+      "publish_for_subscribe": true
+    }
+  ]
+}

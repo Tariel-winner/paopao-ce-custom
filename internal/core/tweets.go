@@ -23,15 +23,22 @@ type TweetService interface {
 	GetPostAttatchmentBill(postID, userID int64) (*ms.PostAttachmentBill, error)
 	GetPostContentsByIDs(ids []int64) ([]*ms.PostContent, error)
 	GetPostContentByID(id int64) (*ms.PostContent, error)
+	GetPostContentByRoomID(roomID string) (*ms.PostContent, error)
+	GetPostContentBySessionID(roomID string, sessionID string) (*ms.PostContent, error)
+	GetPostBySessionID(sessionID string) (*ms.Post, error)
+	GetAudioContentByPostID(postID int64) (*ms.PostContent, error)
+	UpdateContentByRoomId(roomID string, content string, duration float64, size int64) error
+	UpdateContentByPostID(postID int64, content string, duration float64, size int64) error
 	ListUserStarTweets(user *cs.VistUser, limit int, offset int) ([]*ms.PostStar, int64, error)
 	ListUserMediaTweets(user *cs.VistUser, limit int, offset int) ([]*ms.Post, int64, error)
 	ListUserCommentTweets(user *cs.VistUser, limit int, offset int) ([]*ms.Post, int64, error)
 	ListUserTweets(userId int64, style uint8, justEssence bool, limit, offset int) ([]*ms.Post, int64, error)
 	ListFollowingTweets(userId int64, limit, offset int) ([]*ms.Post, int64, error)
+	GetPostLocation(postID int64, userID int64, pageSize int) (page int, position int, totalPosts int64, err error)
 	ListIndexNewestTweets(limit, offset int) ([]*ms.Post, int64, error)
 	ListIndexHotsTweets(limit, offset int) ([]*ms.Post, int64, error)
 	ListSyncSearchTweets(limit, offset int) ([]*ms.Post, int64, error)
-}
+}	
 
 // TweetManageService 推文管理服务，包括创建/删除/更新推文
 type TweetManageService interface {
@@ -48,6 +55,7 @@ type TweetManageService interface {
 	DeletePostCollection(p *ms.PostCollection) error
 	CreatePostContent(content *ms.PostContent) (*ms.PostContent, error)
 	CreateAttachment(obj *ms.Attachment) (int64, error)
+	UpdatePostContent(content *ms.PostContent) error
 }
 
 // TweetHelpService 推文辅助服务

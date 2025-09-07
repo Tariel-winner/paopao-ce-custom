@@ -2,18 +2,17 @@ version: '3.1'
 
 services:
   db:
-    image: mysql:${MYSQL_TAG:-8.0}
+    image: postgres:latest
     restart: always
     environment:
-      MYSQL_DATABASE: paopao
-      MYSQL_USER: paopao
-      MYSQL_PASSWORD: paopao
-      MYSQL_RANDOM_ROOT_PASSWORD: yes
+      POSTGRES_DB: paopao
+      POSTGRES_USER: paopao
+      POSTGRES_PASSWORD: paopao
     volumes:
-      - ./scripts/paopao-mysql.sql:/docker-entrypoint-initdb.d/paopao.sql
-      - ./custom/data/mysql/data:/var/lib/mysql
+      - ./scripts/migration/postgres:/docker-entrypoint-initdb.d
+      - ./custom/data/postgres/data:/var/lib/postgresql/data
     ports:
-      - 3306:3306
+      - 5432:5432
     networks:
       - paopao-network
 
@@ -78,6 +77,20 @@ services:
     networks:
       - paopao-network
 
+  gorush:
+    image: appleboy/gorush:latest
+    restart: always
+    ports:
+      - 8088:8088
+    environment:
+      - GORUSH_CORE_ENGINE=redis
+      - GORUSH_CORE_REDIS_ADDR=redis:6379
+      - GORUSH_CORE_REDIS_DB=1
+    depends_on:
+      - redis
+    networks:
+      - paopao-network
+
   # meilisearch-ui:
   #   image: riccoxie/meilisearch-ui:latest
   #   restart: always
@@ -123,16 +136,25 @@ services:
   #   networks:
   #     - paopao-network
 
+  
+
   backend:
-    image: bitbus/paopao-ce:${PAOPAOCE_TAG:-0.6-alpha}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - API_HOST=backend:8008
+        - USE_API_HOST=yes
+        - EMBED_UI=yes
+        - USE_DIST=no
     restart: always
     depends_on:
       - db
       - redis
       - meili
-    # modify below to reflect your custom configure
+      - gorush
     volumes:
-      - ./config.yaml.sample:/app/paopao-ce/config.yaml
+      - ./config.yaml:/app/paopao-ce/config.yaml
       - ./custom:/app/paopao-ce/custom
     ports:
       - 8008:8008

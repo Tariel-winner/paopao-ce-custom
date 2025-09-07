@@ -1,0 +1,123 @@
+# Reaction Endpoints Test Results
+# Date: 2025-08-04
+# Token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjU1LCJ1c2VybmFtZSI6InNkc2RzIiwiaXNzIjoiYmFiNWE5NDY2ZTQwNzJmODkxOTA4ZmMxZjc1NzNlNzMiLCJleHAiOjIwNjkzMDg2Mjh9.Qg4iBigHp8NkJadC8ltVVhj1M-gdbbJPQQDQN-aS69Q
+
+## 1. CreateUserReaction (POST /v1/user/reaction)
+### Request:
+POST http://localhost:8008/v1/user/reaction
+Authorization: Bearer [token]
+Content-Type: application/json
+Body: {"target_user_id": 2, "reaction_type_id": 1}
+
+### Response:
+[TO BE FILLED]
+
+## 2. GetUserReactions (GET /v1/user/reactions)
+### Request:
+GET http://localhost:8008/v1/user/reactions?user_id=2
+Authorization: Bearer [token]
+
+### Response:
+{"code":0,"msg":"success","data":{"reaction_counts":{"1":1}}}
+
+## 3. GetUserReactionUsers (GET /v1/user/reaction/users)
+### Request:
+GET http://localhost:8008/v1/user/reaction/users?user_id=2&reaction_type_id=1&limit=10&offset=0
+Authorization: Bearer [token]
+
+### Response:
+[TO BE FILLED]
+
+## 4. GetUserGivenReactions (GET /v1/user/given-reactions)
+### Request:
+GET http://localhost:8008/v1/user/given-reactions?user_id=55
+Authorization: Bearer [token]
+
+### Response:
+[TO BE FILLED]
+
+## 5. GetUserGivenReactionUsers (GET /v1/user/given-reaction/users)
+### Request:
+GET http://localhost:8008/v1/user/given-reaction/users?user_id=55&reaction_type_id=1&limit=10&offset=0
+Authorization: Bearer [token]
+
+### Response:
+[TO BE FILLED]
+
+## 6. GetReactionsToTwoUsers (GET /v1/user/reactions/to-two-users)
+### Request:
+curl -X GET "http://localhost:8008/v1/user/reactions/to-two-users?user1_id=2&user2_id=3&page=1&page_size=10" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjU1LCJ1c2VybmFtZSI6InNkc2RzIiwiaXNzIjoiYmFiNWE5NDY2ZTQwNzJmODkxOTA4ZmMxZjc1NzNlNzMiLCJleHAiOjIwNjkzMDg2Mjh9.Qg4iBigHp8NkJadC8ltVVhj1M-gdbbJPQQDQN-aS69Q"
+
+### Response:
+[TO BE FILLED]
+
+## 7. GetGlobalReactionTimeline (GET /v1/user/reactions/timeline/global)
+### Request:
+GET http://localhost:8008/v1/user/reactions/timeline/global?page=1&page_size=10
+Authorization: Bearer [token]
+
+### Response:
+[TO BE FILLED]
+
+## 8. GetUserReactionTimeline (GET /v1/user/reactions/timeline/user)
+### Request:
+GET http://localhost:8008/v1/user/reactions/timeline/user?user_id=55&page=1&page_size=10
+Authorization: Bearer [token]
+
+### Response:
+[TO BE FILLED]
+
+## Notes:
+- User ID 55: sdsds (current user)
+- User ID 2: testuser21
+- User ID 3: testuser22
+- Reaction Type 1: like (👍)
+- Reaction Type 2: love (❤️) 
+
+
+
+
+
+taibov@Tariels-MacBook-Air paopao-ce % curl -X GET "http://localhost:8008/v1/user/reactions?user_id=3" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjU1LCJ1c2VybmFtZSI6InNkc2RzIiwiaXNzIjoiYmFiNWE5NDY2ZTQwNzJmODkxOTA4ZmMxZjc1NzNlNzMiLCJleHAiOjIwNjkzMDg2Mjh9.Qg4iBigHp8NkJadC8ltVVhj1M-gdbbJPQQDQN-aS69Q"
+{"code":0,"msg":"success","data":{"reaction_counts":{"2":1}}}%
+taibov@Tariels-MacBook-Air paopao-ce % curl -X GET "http://localhost:8008/v1/user/reaction/users?user_id=3&reaction_type_id=2&limit=10&offset=0" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjU1LCJ1c2VybmFtZSI6InNkc2RzIiwiaXNzIjoiYmFiNWE5NDY2ZTQwNzJmODkxOTA4ZmMxZjc1NzNlNzMiLCJleHAiOjIwNjkzMDg2Mjh9.Qg4iBigHp8NkJadC8ltVVhj1M-gdbbJPQQDQN-aS69Q"
+{"code":0,"msg":"success","data":{"users":[{"id":55,"nickname":"sdsds","username":"sdsds","status":1,"avatar":"https://assets.paopao.info/public/avatar/default/joshua.png","is_admin":false,"is_friend":false,"is_following":false,"categories":null}],"total":1}}%                   
+taibov@Tariels-MacBook-Air paopao-ce % curl -X GET "http://localhost:8008/v1/user/given-reactions?user_id=55" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjU1LCJ1c2VybmFtZSI6InNkc2RzIiwiaXNzIjoiYmFiNWE5NDY2ZTQwNzJmODkxOTA4ZmMxZjc1NzNlNzMiLCJleHAiOjIwNjkzMDg2Mjh9.Qg4iBigHp8NkJadC8ltVVhj1M-gdbbJPQQDQN-aS69Q"
+{"code":0,"msg":"success","data":{"reaction_counts":{"1":2,"2":1}}}%                         
+taibov@Tariels-MacBook-Air paopao-ce % curl -X GET "http://localhost:8008/v1/user/given-reaction/users?user_id=55&reaction_type_id=2&limit=10&offset=0" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjU1LCJ1c2VybmFtZSI6InNkc2RzIiwiaXNzIjoiYmFiNWE5NDY2ZTQwNzJmODkxOTA4ZmMxZjc1NzNlNzMiLCJleHAiOjIwNjkzMDg2Mjh9.Qg4iBigHp8NkJadC8ltVVhj1M-gdbbJPQQDQN-aS69Q"
+{"code":0,"msg":"success","data":{"users":[{"id":3,"nickname":"testuser22","username":"testuser22","status":1,"avatar":"https://assets.paopao.info/public/avatar/default/quinn.png","is_admin":false,"is_friend":false,"is_following":false,"categories":null}],"total":1}}%           
+taibov@Tariels-MacBook-Air paopao-ce % curl -X GET "http://localhost:8008/v1/user/reactions/to-two-users?user1_id=2&user2_id=3&page=1&page_size=10" \
+
+{"code":10005,"msg":"鉴权失败，Token 错误或丢失"}%            
+taibov@Tariels-MacBook-Air paopao-ce % curl -X GET "http://localhost:8008/v1/user/reactions/timeline/global?limit=10&offset=0" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjU1LCJ1c2VybmFtZSI6InNkc2RzIiwiaXNzIjoiYmFiNWE5NDY2ZTQwNzJmODkxOTA4ZmMxZjc1NzNlNzMiLCJleHAiOjIwNjkzMDg2Mjh9.Qg4iBigHp8NkJadC8ltVVhj1M-gdbbJPQQDQN-aS69Q"
+{"code":0,"msg":"success","data":{"list":[{"reaction_id":4,"reactor_user":{"id":55,"nickname":"sdsds","username":"sdsds","status":0,"avatar":"https://assets.paopao.info/public/avatar/default/joshua.png","is_admin":false,"is_friend":false,"is_following":false,"categories":null},"target_user_id":3,"reaction_type_id":2,"reaction_name":"love","reaction_icon":"❤️","created_on":1754342328},{"reaction_id":2,"reactor_user":{"id":55,"nickname":"sdsds","username":"sdsds","status":0,"avatar":"https://assets.paopao.info/public/avatar/default/joshua.png","is_admin":false,"is_friend":false,"is_following":false,"categories":null},"target_user_id":2,"reaction_type_id":1,"reaction_name":"like","reaction_icon":"👍","created_on":1754341857},{"reaction_id":1,"reactor_user":{"id":55,"nickname":"sdsds","username":"sdsds","status":0,"avatar":"https://assets.paopao.info/public/avatar/default/joshua.png","is_admin":false,"is_friend":false,"is_following":false,"categories":null},"target_user_id":56,"reaction_type_id":1,"reaction_name":"like","reaction_icon":"👍","created_on":1754341597}],"pager":{"page":1,"page_size":10,"total_rows":3}}}%                  
+taibov@Tariels-MacBook-Air paopao-ce % curl -X GET "http://localhost:8008/v1/user/reactions/timeline/user?user_id=55&limit=10&offset=0" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjU1LCJ1c2VybmFtZSI6InNkc2RzIiwiaXNzIjoiYmFiNWE5NDY2ZTQwNzJmODkxOTA4ZmMxZjc1NzNlNzMiLCJleHAiOjIwNjkzMDg2Mjh9.Qg4iBigHp8NkJadC8ltVVhj1M-gdbbJPQQDQN-aS69Q"
+{"code":0,"msg":"success","data":{"list":[{"reaction_id":4,"reactor_user":{"id":55,"nickname":"sdsds","username":"sdsds","status":0,"avatar":"https://assets.paopao.info/public/avatar/default/joshua.png","is_admin":false,"is_friend":false,"is_following":false,"categories":null},"target_user_id":3,"reaction_type_id":2,"reaction_name":"love","reaction_icon":"❤️","created_on":1754342328},{"reaction_id":2,"reactor_user":{"id":55,"nickname":"sdsds","username":"sdsds","status":0,"avatar":"https://assets.paopao.info/public/avatar/default/joshua.png","is_admin":false,"is_friend":false,"is_following":false,"categories":null},"target_user_id":2,"reaction_type_id":1,"reaction_name":"like","reaction_icon":"👍","created_on":1754341857},{"reaction_id":1,"reactor_user":{"id":55,"nickname":"sdsds","username":"sdsds","status":0,"avatar":"https://assets.paopao.info/public/avatar/default/joshua.png","is_admin":false,"is_friend":false,"is_following":false,"categories":null},"target_user_id":56,"reaction_type_id":1,"reaction_name":"like","reaction_icon":"👍","created_on":1754341597}],"pager":{"page":1,"page_size":10,"total_rows":3}}}%                  
+taibov@Tariels-MacBook-Air paop
+taibov@Tariels-MacBook-Air paop
+taibov@Tariels-MacBook-Air paopao-ce % docker exec -it paopao-ce-db-1 psql -U paopao -d paopao -c "SELECT id, username, nickname FROM p_user WHERE is_del = 0 LIMIT 10;"
+ id |  username  |  nickname  
+----+------------+------------
+  2 | testuser21 | testuser21
+  3 | testuser22 | testuser22
+  4 | testuser23 | testuser23
+  5 | testuser24 | testuser24
+  6 | testuser25 | testuser25
+  7 | testuser26 | testuser26
+  8 | testuser27 | testuser27
+  9 | testuser28 | testuser28
+ 10 | testuser29 | testuser29
+ 11 | testuser30 | testuser30
+(10 rows)
+
+taibov@Tariels-MacBook-Air paopao-ce % curl -X GET "http://localhost:8008/v1/user/reactions/to-two-users?user1_id=2&user2_id=3&page=1&page_size=10" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjU1LCJ1c2VybmFtZSI6InNkc2RzIiwiaXNzIjoiYmFiNWE5NDY2ZTQwNzJmODkxOTA4ZmMxZjc1NzNlNzMiLCJleHAiOjIwNjkzMDg2Mjh9.Qg4iBigHp8NkJadC8ltVVhj1M-gdbbJPQQDQN-aS69Q"
+{"code":0,"msg":"success","data":{"list":[{"reaction_id":4,"reactor_user":{"id":55,"nickname":"sdsds","username":"sdsds","status":0,"avatar":"https://assets.paopao.info/public/avatar/default/joshua.png","is_admin":false,"is_friend":false,"is_following":false,"categories":null},"target_user_id":3,"reaction_type_id":2,"reaction_name":"love","reaction_icon":"❤️","created_on":1754342328},{"reaction_id":2,"reactor_user":{"id":55,"nickname":"sdsds","username":"sdsds","status":0,"avatar":"https://assets.paopao.info/public/avatar/default/joshua.png","is_admin":false,"is_friend":false,"is_following":false,"categories":null},"target_user_id":2,"reaction_type_id":1,"reaction_name":"like","reaction_icon":"👍","created_on":1754341857}],"pager":{"page":1,"page_size":10,"total_rows":2}}}%                       
+taibov@Tariels-MacBook-Air paopao-ce % 

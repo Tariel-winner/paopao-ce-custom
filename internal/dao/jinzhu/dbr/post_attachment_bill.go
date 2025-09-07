@@ -22,7 +22,7 @@ func (p *PostAttachmentBill) Get(db *gorm.DB) (*PostAttachmentBill, error) {
 		db = db.Where("post_id = ?", p.PostID)
 	}
 	if p.UserID > 0 {
-		db = db.Where("user_id = ?", p.UserID)
+		db = db.Where("CAST(user_id->0 AS bigint) = ?", p.UserID)
 	}
 
 	err := db.First(&pas).Error

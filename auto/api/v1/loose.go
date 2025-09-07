@@ -24,6 +24,7 @@ type Loose interface {
 	GetUserProfile(*web.GetUserProfileReq) (*web.GetUserProfileResp, mir.Error)
 	GetUserTweets(*web.GetUserTweetsReq) (*web.GetUserTweetsResp, mir.Error)
 	Timeline(*web.TimelineReq) (*web.TimelineResp, mir.Error)
+	GetPostLocation(*web.PostLocationReq) (*web.PostLocationResp, mir.Error)
 
 	mustEmbedUnimplementedLooseServant()
 }
@@ -136,6 +137,21 @@ func RegisterLooseServant(e *gin.Engine, s Loose) {
 		var rv _render_ = resp
 		rv.Render(c)
 	})
+	router.Handle("GET", "/posts/:postId/location", func(c *gin.Context) {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+		}
+		req := new(web.PostLocationReq)
+		var bv _binding_ = req
+		if err := bv.Bind(c); err != nil {
+			s.Render(c, nil, err)
+			return
+		}
+		resp, err := s.GetPostLocation(req)
+		s.Render(c, resp, err)
+	})
 }
 
 // UnimplementedLooseServant can be embedded to have forward compatible implementations.
@@ -166,6 +182,10 @@ func (UnimplementedLooseServant) GetUserTweets(req *web.GetUserTweetsReq) (*web.
 }
 
 func (UnimplementedLooseServant) Timeline(req *web.TimelineReq) (*web.TimelineResp, mir.Error) {
+	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
+}
+
+func (UnimplementedLooseServant) GetPostLocation(req *web.PostLocationReq) (*web.PostLocationResp, mir.Error) {
 	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
 }
 

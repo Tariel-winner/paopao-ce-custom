@@ -14,6 +14,7 @@ import (
 	"github.com/rocboss/paopao-ce/internal/core/ms"
 	"github.com/rocboss/paopao-ce/internal/dao/jinzhu/dbr"
 	"github.com/rocboss/paopao-ce/pkg/debug"
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
@@ -92,10 +93,13 @@ func newTweetHelpServantA(db *gorm.DB) core.TweetHelpServantA {
 // MergePosts post数据整合
 func (s *tweetHelpSrv) MergePosts(posts []*ms.Post) ([]*ms.PostFormated, error) {
 	postIds := make([]int64, 0, len(posts))
-	userIds := make([]int64, 0, len(posts))
+	userIds := make([]int64, 0, len(posts)*2) // Double capacity for both host and visitor IDs
 	for _, post := range posts {
 		postIds = append(postIds, post.ID)
-		userIds = append(userIds, post.UserID)
+		userIds = append(userIds, post.GetHostID())
+		if visitorID := post.GetVisitorID(); visitorID > 0 {
+			userIds = append(userIds, visitorID)
+		}
 	}
 
 	postContents, err := s.getPostContentsByIDs(postIds)
@@ -122,7 +126,10 @@ func (s *tweetHelpSrv) MergePosts(posts []*ms.Post) ([]*ms.PostFormated, error) 
 	postsFormated := make([]*dbr.PostFormated, 0, len(posts))
 	for _, post := range posts {
 		postFormated := post.Format()
-		postFormated.User = userMap[post.UserID]
+		postFormated.User = userMap[post.GetHostID()]
+		if visitorID := post.GetVisitorID(); visitorID > 0 {
+			postFormated.Visitor = userMap[visitorID]
+		}
 		postFormated.Contents = contentMap[post.ID]
 		postsFormated = append(postsFormated, postFormated)
 	}
@@ -132,10 +139,13 @@ func (s *tweetHelpSrv) MergePosts(posts []*ms.Post) ([]*ms.PostFormated, error) 
 // RevampPosts post数据整形修复
 func (s *tweetHelpSrv) RevampPosts(posts []*ms.PostFormated) ([]*ms.PostFormated, error) {
 	postIds := make([]int64, 0, len(posts))
-	userIds := make([]int64, 0, len(posts))
+	userIds := make([]int64, 0, len(posts)*2) // Double capacity for both host and visitor IDs
 	for _, post := range posts {
 		postIds = append(postIds, post.ID)
-		userIds = append(userIds, post.UserID)
+		userIds = append(userIds, post.GetHostID())
+		if visitorID := post.GetVisitorID(); visitorID > 0 {
+			userIds = append(userIds, visitorID)
+		}
 	}
 
 	postContents, err := s.getPostContentsByIDs(postIds)
@@ -160,7 +170,10 @@ func (s *tweetHelpSrv) RevampPosts(posts []*ms.PostFormated) ([]*ms.PostFormated
 
 	// 数据整合
 	for _, post := range posts {
-		post.User = userMap[post.UserID]
+		post.User = userMap[post.GetHostID()]
+		if visitorID := post.GetVisitorID(); visitorID > 0 {
+			post.Visitor = userMap[visitorID]
+		}
 		post.Contents = contentMap[post.ID]
 	}
 	return posts, nil
@@ -203,12 +216,33 @@ func (s *tweetManageSrv) CreateAttachment(obj *ms.Attachment) (int64, error) {
 	return attachment.ID, err
 }
 
+func (s *tweetManageSrv) UpdatePostContent(content *ms.PostContent) error {
+	postContent := &dbr.PostContent{
+		Model: &dbr.Model{
+			ID: content.ID,
+		},
+		Content:  content.Content,
+		Duration: content.Duration,
+		Size:     content.Size,
+	}
+	return postContent.UpdateAudioContentByRoomId(s.db, content.RoomID, content.Content, content.Duration, content.Size)
+}
+
 func (s *tweetManageSrv) CreatePost(post *ms.Post) (*ms.Post, error) {
+	logrus.Debugf("DEBUG CreatePost: Starting with post=%+v", post)
+	logrus.Debugf("DEBUG CreatePost: Model=%+v", post.Model)
+	logrus.Debugf("DEBUG CreatePost: UserID=%v (type: %T)", post.UserID, post.UserID)
+
 	post.LatestRepliedOn = time.Now().Unix()
+	logrus.Debugf("DEBUG CreatePost: About to call post.Create with db=%+v", s.db)
+	
 	p, err := post.Create(s.db)
 	if err != nil {
+		logrus.Errorf("DEBUG CreatePost Error: %v", err)
 		return nil, err
 	}
+	
+	logrus.Debugf("DEBUG CreatePost: Successfully created post=%+v", p)
 	s.cacheIndex.SendAction(core.IdxActCreatePost, post)
 	return p, nil
 }
@@ -315,7 +349,7 @@ func (s *tweetManageSrv) HighlightPost(userId int64, postId int64) (res int, err
 	if err = tx.Where("id = ? AND is_del = 0", postId).First(&post).Error; err != nil {
 		return
 	}
-	if post.UserID != userId {
+	if post.GetHostID() != userId {
 		return 0, cs.ErrNoPermission
 	}
 	post.IsEssence = 1 - post.IsEssence
@@ -349,7 +383,7 @@ func (s *tweetManageSrv) VisiblePost(post *ms.Post, visibility cs.TweetVisibleTy
 	// TODO: 暂时宽松不处理错误，这里或许可以有优化，后续完善
 	if oldVisibility == dbr.PostVisitPrivate {
 		// 从私密转为非私密才需要重新创建tag
-		createTags(tx, post.UserID, tags)
+		createTags(tx, post.GetHostID(), tags)
 	} else if visibility == cs.TweetVisitPrivate {
 		// 从非私密转为私密才需要删除tag
 		deleteTags(tx, tags)
@@ -393,38 +427,57 @@ func (s *tweetSrv) GetPosts(conditions ms.ConditionsT, offset, limit int) ([]*ms
 }
 
 func (s *tweetSrv) ListUserTweets(userId int64, style uint8, justEssence bool, limit, offset int) (res []*ms.Post, total int64, err error) {
-	db := s.db.Model(&dbr.Post{}).Where("user_id = ?", userId)
+	logrus.Debugf("DEBUG ListUserTweets: Starting with userId=%d, style=%d, justEssence=%v, limit=%d, offset=%d", userId, style, justEssence, limit, offset)
+	
+	// Include empty content filter in initial query setup
+	db := s.db.Model(&dbr.Post{}).Where("CAST(user_id->0 AS bigint) = ? AND EXISTS (SELECT 1 FROM p_post_content WHERE post_id = p_post.id AND content != '')", userId)
+	logrus.Debugf("DEBUG ListUserTweets: Initial query condition user_id->0 = %d with empty content filter", userId)
+	
 	switch style {
 	case cs.StyleUserTweetsAdmin:
 		fallthrough
 	case cs.StyleUserTweetsSelf:
 		db = db.Where("visibility >= ?", cs.TweetVisitPrivate)
+		logrus.Debugf("DEBUG ListUserTweets: Added admin/self visibility condition >= %d", cs.TweetVisitPrivate)
 	case cs.StyleUserTweetsFriend:
 		db = db.Where("visibility >= ?", cs.TweetVisitFriend)
+		logrus.Debugf("DEBUG ListUserTweets: Added friend visibility condition >= %d", cs.TweetVisitFriend)
 	case cs.StyleUserTweetsFollowing:
 		db = db.Where("visibility >= ?", cs.TweetVisitFollowing)
+		logrus.Debugf("DEBUG ListUserTweets: Added following visibility condition >= %d", cs.TweetVisitFollowing)
 	case cs.StyleUserTweetsGuest:
 		fallthrough
 	default:
 		db = db.Where("visibility >= ?", cs.TweetVisitPublic)
+		logrus.Debugf("DEBUG ListUserTweets: Added public visibility condition >= %d", cs.TweetVisitPublic)
 	}
 	if justEssence {
 		db = db.Where("is_essence=1")
+		logrus.Debug("DEBUG ListUserTweets: Added essence condition")
 	}
+	
 	if err = db.Count(&total).Error; err != nil {
+		logrus.Errorf("DEBUG ListUserTweets: Error counting total: %v", err)
 		return
 	}
+	logrus.Debugf("DEBUG ListUserTweets: Total count = %d", total)
+	
 	if offset >= 0 && limit > 0 {
 		db = db.Offset(offset).Limit(limit)
+		logrus.Debugf("DEBUG ListUserTweets: Added offset=%d and limit=%d", offset, limit)
 	}
 	if err = db.Order("is_top DESC, latest_replied_on DESC").Find(&res).Error; err != nil {
+		logrus.Errorf("DEBUG ListUserTweets: Error fetching results: %v", err)
 		return
 	}
+	logrus.Debugf("DEBUG ListUserTweets: Successfully fetched %d posts", len(res))
 	return
 }
 
 func (s *tweetSrv) ListIndexNewestTweets(limit, offset int) (res []*ms.Post, total int64, err error) {
-	db := s.db.Table(_post_).Where("visibility >= ?", cs.TweetVisitPublic)
+	// Include empty content filter in initial query setup
+	db := s.db.Table(_post_).Where("visibility >= ? AND EXISTS (SELECT 1 FROM p_post_content WHERE post_id = p_post.id AND content != '')", cs.TweetVisitPublic)
+	
 	if err = db.Count(&total).Error; err != nil {
 		return
 	}
@@ -438,7 +491,9 @@ func (s *tweetSrv) ListIndexNewestTweets(limit, offset int) (res []*ms.Post, tot
 }
 
 func (s *tweetSrv) ListIndexHotsTweets(limit, offset int) (res []*ms.Post, total int64, err error) {
-	db := s.db.Table(_post_).Joins(fmt.Sprintf("LEFT JOIN %s metric ON %s.id=metric.post_id", _post_metric_, _post_)).Where(fmt.Sprintf("visibility >= ? AND %s.is_del=0 AND metric.is_del=0", _post_), cs.TweetVisitPublic)
+	// Include empty content filter in initial query setup
+	db := s.db.Table(_post_).Joins(fmt.Sprintf("LEFT JOIN %s metric ON %s.id=metric.post_id", _post_metric_, _post_)).Where(fmt.Sprintf("visibility >= ? AND %s.is_del=0 AND metric.is_del=0 AND EXISTS (SELECT 1 FROM p_post_content WHERE post_id = p_post.id AND content != '')", _post_), cs.TweetVisitPublic)
+	
 	if err = db.Count(&total).Error; err != nil {
 		return
 	}
@@ -452,7 +507,8 @@ func (s *tweetSrv) ListIndexHotsTweets(limit, offset int) (res []*ms.Post, total
 }
 
 func (s *tweetSrv) ListSyncSearchTweets(limit, offset int) (res []*ms.Post, total int64, err error) {
-	db := s.db.Table(_post_).Where("visibility >= ?", cs.TweetVisitFriend)
+	// Include empty content filter in initial query setup
+	db := s.db.Table(_post_).Where("visibility >= ? AND EXISTS (SELECT 1 FROM p_post_content WHERE post_id = p_post.id AND content != '')", cs.TweetVisitFriend)
 	if err = db.Count(&total).Error; err != nil {
 		return
 	}
@@ -466,32 +522,49 @@ func (s *tweetSrv) ListSyncSearchTweets(limit, offset int) (res []*ms.Post, tota
 }
 
 func (s *tweetSrv) ListFollowingTweets(userId int64, limit, offset int) (res []*ms.Post, total int64, err error) {
+	logrus.Debugf("DEBUG ListFollowingTweets: Starting with userId=%d, limit=%d, offset=%d", userId, limit, offset)
+	
 	beFriendIds, beFollowIds, xerr := s.getUserRelation(userId)
 	if xerr != nil {
+		logrus.Errorf("DEBUG ListFollowingTweets: Error getting user relations: %v", xerr)
 		return nil, 0, xerr
 	}
+	logrus.Debugf("DEBUG ListFollowingTweets: Got friend IDs=%v, follow IDs=%v", beFriendIds, beFollowIds)
+	
 	beFriendCount, beFollowCount := len(beFriendIds), len(beFollowIds)
-	db := s.db.Model(&dbr.Post{})
+	// Include empty content filter in initial query setup
+	db := s.db.Model(&dbr.Post{}).Where("EXISTS (SELECT 1 FROM p_post_content WHERE post_id = p_post.id AND content != '')")
 	//可见性: 0私密 10充电可见 20订阅可见 30保留 40保留 50好友可见 60关注可见 70保留 80保留 90公开',
 	switch {
 	case beFriendCount > 0 && beFollowCount > 0:
-		db = db.Where("user_id=? OR (visibility>=50 AND user_id IN(?)) OR (visibility>=60 AND user_id IN(?))", userId, beFriendIds, beFollowIds)
+		db = db.Where("CAST(user_id->0 AS bigint)=? OR (visibility>=50 AND CAST(user_id->0 AS bigint) IN(?)) OR (visibility>=60 AND CAST(user_id->0 AS bigint) IN(?))", userId, beFriendIds, beFollowIds)
+		logrus.Debug("DEBUG ListFollowingTweets: Using condition for both friends and followers")
 	case beFriendCount > 0 && beFollowCount == 0:
-		db = db.Where("user_id=? OR (visibility>=50 AND user_id IN(?))", userId, beFriendIds)
+		db = db.Where("CAST(user_id->0 AS bigint)=? OR (visibility>=50 AND CAST(user_id->0 AS bigint) IN(?))", userId, beFriendIds)
+		logrus.Debug("DEBUG ListFollowingTweets: Using condition for friends only")
 	case beFriendCount == 0 && beFollowCount > 0:
-		db = db.Where("user_id=? OR (visibility>=60 AND user_id IN(?))", userId, beFollowIds)
+		db = db.Where("CAST(user_id->0 AS bigint)=? OR (visibility>=60 AND CAST(user_id->0 AS bigint) IN(?))", userId, beFollowIds)
+		logrus.Debug("DEBUG ListFollowingTweets: Using condition for followers only")
 	case beFriendCount == 0 && beFollowCount == 0:
-		db = db.Where("user_id = ?", userId)
+		db = db.Where("CAST(user_id->0 AS bigint) = ?", userId)
+		logrus.Debug("DEBUG ListFollowingTweets: Using condition for user only")
 	}
+	
 	if err = db.Count(&total).Error; err != nil {
+		logrus.Errorf("DEBUG ListFollowingTweets: Error counting total: %v", err)
 		return
 	}
+	logrus.Debugf("DEBUG ListFollowingTweets: Total count = %d", total)
+	
 	if offset >= 0 && limit > 0 {
 		db = db.Offset(offset).Limit(limit)
+		logrus.Debugf("DEBUG ListFollowingTweets: Added offset=%d and limit=%d", offset, limit)
 	}
 	if err = db.Order("is_top DESC, latest_replied_on DESC").Find(&res).Error; err != nil {
+		logrus.Errorf("DEBUG ListFollowingTweets: Error fetching results: %v", err)
 		return
 	}
+	logrus.Debugf("DEBUG ListFollowingTweets: Successfully fetched %d posts", len(res))
 	return
 }
 
@@ -552,36 +625,58 @@ func (s *tweetSrv) ListUserStarTweets(user *cs.VistUser, limit int, offset int) 
 }
 
 func (s *tweetSrv) getUserTweets(db *gorm.DB, user *cs.VistUser, limit int, offset int) (res []*ms.Post, total int64, err error) {
+	logrus.Debugf("DEBUG getUserTweets: Starting with userId=%d, relationType=%d, limit=%d, offset=%d", user.UserId, user.RelTyp, limit, offset)
+	
 	visibilities := []core.PostVisibleT{core.PostVisitPublic}
 	switch user.RelTyp {
 	case cs.RelationAdmin, cs.RelationSelf:
 		visibilities = append(visibilities, core.PostVisitPrivate, core.PostVisitFriend)
+		logrus.Debug("DEBUG getUserTweets: Added private and friend visibilities for admin/self")
 	case cs.RelationFriend:
 		visibilities = append(visibilities, core.PostVisitFriend)
+		logrus.Debug("DEBUG getUserTweets: Added friend visibility for friend")
 	case cs.RelationGuest:
 		fallthrough
 	default:
-		// nothing
+		logrus.Debug("DEBUG getUserTweets: Using only public visibility for guest")
 	}
-	db = db.Where("visibility IN ? AND is_del=0", visibilities)
+	
+	// Include empty content filter in initial query setup
+	db = db.Where("visibility IN ? AND is_del=0 AND EXISTS (SELECT 1 FROM p_post_content WHERE post_id = p_post.id AND content != '')", visibilities)
+	logrus.Debugf("DEBUG getUserTweets: Using visibilities=%v with empty content filter", visibilities)
+	
 	err = db.Count(&total).Error
 	if err != nil {
+		logrus.Errorf("DEBUG getUserTweets: Error counting total: %v", err)
 		return
 	}
+	logrus.Debugf("DEBUG getUserTweets: Total count = %d", total)
+	
 	if offset >= 0 && limit > 0 {
 		db = db.Offset(offset).Limit(limit)
+		logrus.Debugf("DEBUG getUserTweets: Added offset=%d and limit=%d", offset, limit)
 	}
-	err = db.Order("latest_replied_on DESC").Find(&res).Error
+	
+	err = db.Order("is_top DESC, latest_replied_on DESC").Find(&res).Error
+	if err != nil {
+		logrus.Errorf("DEBUG getUserTweets: Error fetching results: %v", err)
+		return
+	}
+	logrus.Debugf("DEBUG getUserTweets: Successfully fetched %d posts", len(res))
 	return
 }
 
 func (s *tweetSrv) ListUserMediaTweets(user *cs.VistUser, limit int, offset int) ([]*ms.Post, int64, error) {
-	db := s.db.Table(_post_by_media_).Where("user_id=?", user.UserId)
+	logrus.Debugf("DEBUG ListUserMediaTweets: Starting with userId=%d, limit=%d, offset=%d", user.UserId, limit, offset)
+	db := s.db.Table(_post_by_media_).Where("CAST(user_id->0 AS bigint) = ?", user.UserId)
+	logrus.Debugf("DEBUG ListUserMediaTweets: Using query condition CAST(user_id->0 AS bigint) = %d", user.UserId)
 	return s.getUserTweets(db, user, limit, offset)
 }
 
 func (s *tweetSrv) ListUserCommentTweets(user *cs.VistUser, limit int, offset int) ([]*ms.Post, int64, error) {
-	db := s.db.Table(_post_by_comment_).Where("comment_user_id=?", user.UserId)
+	logrus.Debugf("DEBUG ListUserCommentTweets: Starting with userId=%d, limit=%d, offset=%d", user.UserId, limit, offset)
+	db := s.db.Table(_post_by_comment_).Where("CAST(user_id->0 AS bigint) = ?", user.UserId)
+	logrus.Debugf("DEBUG ListUserCommentTweets: Using query condition CAST(user_id->0 AS bigint) = %d", user.UserId)
 	return s.getUserTweets(db, user, limit, offset)
 }
 
@@ -656,6 +751,32 @@ func (s *tweetSrv) GetPostContentByID(id int64) (*ms.PostContent, error) {
 			ID: id,
 		},
 	}).Get(s.db)
+}
+
+func (s *tweetSrv) GetPostContentByRoomID(roomID string) (*ms.PostContent, error) {
+	return (&dbr.PostContent{}).GetPostContentByRoomID(s.db, roomID)
+}
+
+func (s *tweetSrv) GetPostContentBySessionID(roomID string, sessionID string) (*ms.PostContent, error) {
+	return (&dbr.PostContent{}).GetPostContentBySessionID(s.db, roomID, sessionID)
+}
+
+func (s *tweetSrv) GetPostBySessionID(sessionID string) (*ms.Post, error) {
+	return (&dbr.Post{}).GetPostBySessionID(s.db, sessionID)
+}
+
+func (s *tweetSrv) GetAudioContentByPostID(postID int64) (*ms.PostContent, error) {
+	return (&dbr.PostContent{}).GetAudioContentByPostID(s.db, postID)
+}
+
+func (s *tweetSrv) UpdateContentByRoomId(roomID string, content string, duration float64, size int64) error {
+	postContent := &dbr.PostContent{}
+	return postContent.UpdateAudioContentByRoomId(s.db, roomID, content, fmt.Sprintf("%.1f", duration), fmt.Sprintf("%d", size))
+}
+
+func (s *tweetSrv) UpdateContentByPostID(postID int64, content string, duration float64, size int64) error {
+	postContent := &dbr.PostContent{}
+	return postContent.UpdateAudioContentByPostID(s.db, postID, content, fmt.Sprintf("%.1f", duration), fmt.Sprintf("%d", size))
 }
 
 func (s *tweetSrvA) TweetInfoById(id int64) (*cs.TweetInfo, error) {
@@ -756,4 +877,8 @@ func (s *tweetHelpSrvA) RevampTweets(tweets cs.TweetList) (cs.TweetList, error) 
 func (s *tweetHelpSrvA) MergeTweets(tweets cs.TweetInfo) (cs.TweetList, error) {
 	// TODO
 	return nil, debug.ErrNotImplemented
+}
+
+func (s *tweetSrv) GetPostLocation(postID int64, userID int64, pageSize int) (page int, position int, totalPosts int64, err error) {
+	return (&dbr.Post{}).GetPostLocation(s.db, postID, userID, pageSize)
 }

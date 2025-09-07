@@ -5,6 +5,7 @@
 package web
 
 import (
+	"fmt"
 	"image"
 	"io"
 	"strings"
@@ -196,7 +197,7 @@ func (s *privSrv) DownloadAttachmentPrecheck(req *web.DownloadAttachmentPrecheck
 			return nil, web.ErrInvalidDownloadReq
 		}
 		// 发布者或管理员免费下载
-		if tweet.UserID == req.User.ID || req.User.IsAdmin {
+		if tweet.GetHostID() == req.User.ID || req.User.IsAdmin {
 			return resp, nil
 		}
 		// 检测是否有购买记录
@@ -220,7 +221,7 @@ func (s *privSrv) DownloadAttachment(req *web.DownloadAttachmentReq) (*web.Downl
 		}
 		paidFlag := false
 		// 发布者或管理员免费下载 或者 检测是否有购买记录
-		if post.UserID == req.User.ID || req.User.IsAdmin || s.checkPostAttachmentIsPaid(post.ID, req.User.ID) {
+		if post.GetHostID() == req.User.ID || req.User.IsAdmin || s.checkPostAttachmentIsPaid(post.ID, req.User.ID) {
 			paidFlag = true
 		}
 		// 未购买，则尝试购买
@@ -229,7 +230,7 @@ func (s *privSrv) DownloadAttachment(req *web.DownloadAttachmentReq) (*web.Downl
 				Model: &ms.Model{
 					ID: post.ID,
 				},
-				UserID:          post.UserID,
+				UserID: []int64{post.GetHostID()},
 				AttachmentPrice: post.AttachmentPrice,
 			}, req.User)
 			if err != nil {
@@ -250,52 +251,101 @@ func (s *privSrv) DownloadAttachment(req *web.DownloadAttachmentReq) (*web.Downl
 }
 
 func (s *privSrv) CreateTweet(req *web.CreateTweetReq) (_ *web.CreateTweetResp, xerr mir.Error) {
+	logrus.Infof("Starting CreateTweet with request: %+v", req)
 	var mediaContents []string
 	defer func() {
 		if xerr != nil {
+			logrus.Errorf("CreateTweet failed with error: %v", xerr)
 			deleteOssObjects(s.oss, mediaContents)
 		}
 	}()
 
 	contents, err := persistMediaContents(s.oss, req.Contents)
 	if err != nil {
+		logrus.Errorf("Failed to persist media contents: %v", err)
 		return nil, web.ErrCreatePostFailed
 	}
 	mediaContents = contents
+	logrus.Infof("Successfully persisted media contents: %v", contents)
+
 	tags := tagsFrom(req.Tags)
+	logrus.Infof("Processed tags: %v", tags)
+
+	var visitorID int64
+	if len(req.Contents) > 0 && req.Contents[0].Type == ms.ContentTypeAudio && len(req.Users) > 0 {
+		logrus.Infof("Processing audio content with users: %v", req.Users)
+		if visitor, err := s.Ds.GetUserByUsername(req.Users[0]); err == nil && visitor != nil && visitor.Model != nil {
+			visitorID = visitor.Model.ID
+			logrus.Infof("Found visitor with ID: %d", visitorID)
+		} else {
+			logrus.Errorf("Failed to get visitor or visitor is nil: %v", err)
+		}
+	}
+
+	// Initialize userIDs with host ID and visitor ID if it exists
+	userIDs := make([]int64, 0, 2)
+	userIDs = append(userIDs, req.User.ID)
+	if visitorID > 0 {
+		userIDs = append(userIDs, visitorID)
+	}
+	logrus.Infof("Creating post with UserID array: %v", userIDs)
+
 	post := &ms.Post{
-		UserID:          req.User.ID,
+		UserID:          userIDs,
 		Tags:            strings.Join(tags, ","),
 		IP:              req.ClientIP,
 		IPLoc:           utils.GetIPLoc(req.ClientIP),
 		AttachmentPrice: req.AttachmentPrice,
 		Visibility:      ms.PostVisibleT(req.Visibility.ToVisibleValue()),
+		RoomID:          req.RoomID,
+		SessionID:       req.SessionID,
 	}
+	logrus.Debugf("DEBUG CreateTweet: post=%+v", post)
+	logrus.Debugf("DEBUG CreateTweet: user_ids=%v (type: %T)", post.UserID, post.UserID)
+	logrus.Debugf("DEBUG CreateTweet: model=%+v", post.Model)
+
+	logrus.Infof("Created post object: %+v", post)
+
 	post, err = s.Ds.CreatePost(post)
 	if err != nil {
-		logrus.Errorf("Ds.CreatePost err: %s", err)
+		logrus.WithError(err).WithFields(logrus.Fields{
+			"post_obj": post,
+			"user_ids": userIDs,
+		}).Error("Ds.CreatePost failed")
 		return nil, web.ErrCreatePostFailed
 	}
+	logrus.WithFields(logrus.Fields{
+		"post_id":        post.ID,
+		"user_ids":       post.UserID,
+		"user_ids_type":  fmt.Sprintf("%T", post.UserID),
+		"session_id":     post.SessionID,
+		"room_id":        post.RoomID,
+	}).Info("Successfully created post")
 
 	// 创建推文内容
 	for _, item := range req.Contents {
 		if err := item.Check(s.Ds); err != nil {
-			// 属性非法
-			logrus.Infof("contents check err: %s", err)
+			logrus.Warnf("Content check failed: %v", err)
 			continue
 		}
 		if item.Type == ms.ContentTypeAttachment && req.AttachmentPrice > 0 {
 			item.Type = ms.ContentTypeChargeAttachment
 		}
+		// Use content as-is, don't replace with session_id
+		content := item.Content
+		logrus.Infof("Audio content detected, storing content as-is: %s", content)
+
 		postContent := &ms.PostContent{
 			PostID:  post.ID,
-			UserID:  req.User.ID,
-			Content: item.Content,
+			UserID:  userIDs,
+			RoomID:  req.RoomID,
+			Content: content,
 			Type:    item.Type,
 			Sort:    item.Sort,
 		}
+		logrus.Infof("Creating post content: %+v", postContent)
 		if _, err = s.Ds.CreatePostContent(postContent); err != nil {
-			logrus.Infof("Ds.CreatePostContent err: %s", err)
+			logrus.Errorf("Ds.CreatePostContent failed: %v", err)
 			return nil, web.ErrCreateCommentFailed
 		}
 	}
@@ -304,35 +354,43 @@ func (s *privSrv) CreateTweet(req *web.CreateTweetReq) (_ *web.CreateTweetResp, 
 	if post.Visibility != core.PostVisitPrivate {
 		// 创建标签
 		s.Ds.UpsertTags(req.User.ID, tags)
+		logrus.Infof("Upserted tags for user %d: %v", req.User.ID, tags)
 
-		// 创建用户消息提醒
-		for _, u := range req.Users {
-			user, err := s.Ds.GetUserByUsername(u)
-			if err != nil || user.ID == req.User.ID {
-				continue
-			}
+		// 创建用户消息提醒 - 现在由webhook处理
+		// for _, u := range req.Users {
+		// 	user, err := s.Ds.GetUserByUsername(u)
+		// 	if err != nil || user.ID == req.User.ID {
+		// 		continue
+		// 	}
 
-			// 创建消息提醒
-			onCreateMessageEvent(&ms.Message{
-				SenderUserID:   req.User.ID,
-				ReceiverUserID: user.ID,
-				Type:           ms.MsgTypePost,
-				Brief:          "在新发布的泡泡动态中@了你",
-				PostID:         post.ID,
-			})
-		}
+		// 	// 创建消息提醒
+		// 	onCreateMessageEvent(&ms.Message{
+		// 		SenderUserID:   req.User.ID,
+		// 		ReceiverUserID: user.ID,
+		// 		Type:           ms.MsgTypePost,
+		// 		Brief:          "在新发布的泡泡动态中@了你",
+		// 		PostID:         post.ID,
+		// 	})
+		// 	logrus.Infof("Created message notification for user %d", user.ID)
+		// }
 	}
+
 	// 推送Search
 	s.PushPostToSearch(post)
+	logrus.Infof("Pushed post to search index")
+
 	formatedPosts, err := s.Ds.RevampPosts([]*ms.PostFormated{post.Format()})
 	if err != nil {
-		logrus.Infof("Ds.RevampPosts err: %s", err)
+		logrus.Errorf("Ds.RevampPosts failed: %v", err)
 		return nil, web.ErrCreatePostFailed
 	}
+	logrus.Infof("Successfully formatted posts")
+
 	// 缓存处理
-	// TODO: 缓存逻辑合并处理
 	onTrendsActionEvent(_trendsActionCreateTweet, req.User.ID)
 	onTweetActionEvent(_tweetActionCreate, req.User.ID, req.User.Username)
+	logrus.Infof("Successfully completed CreateTweet for user %d", req.User.ID)
+
 	return (*web.CreateTweetResp)(formatedPosts[0]), nil
 }
 
@@ -345,7 +403,7 @@ func (s *privSrv) DeleteTweet(req *web.DeleteTweetReq) mir.Error {
 		logrus.Errorf("Ds.GetPostByID err: %s", err)
 		return web.ErrGetPostFailed
 	}
-	if post.UserID != req.User.ID && !req.User.IsAdmin {
+	if post.GetHostID() != req.User.ID && !req.User.IsAdmin {
 		return web.ErrNoPermission
 	}
 	mediaContents, err := s.Ds.DeletePost(post)
@@ -438,7 +496,7 @@ func (s *privSrv) CreateCommentReply(req *web.CreateCommentReplyReq) (_ *web.Cre
 			ReplyID:        reply.ID,
 		})
 	}
-	postMaster, err := s.Ds.GetUserByID(post.UserID)
+	postMaster, err := s.Ds.GetUserByID(post.GetHostID())
 	if err == nil && postMaster.ID != req.Uid && commentMaster.ID != postMaster.ID {
 		onCreateMessageEvent(&ms.Message{
 			SenderUserID:   req.Uid,
@@ -558,14 +616,14 @@ func (s *privSrv) CreateComment(req *web.CreateCommentReq) (_ *web.CreateComment
 				continue
 			}
 		}
-		postContent := &ms.CommentContent{
-			CommentID: comment.ID,
-			UserID:    req.Uid,
-			Content:   item.Content,
-			Type:      item.Type,
-			Sort:      item.Sort,
+		postContent := &ms.PostContent{
+			PostID:  post.ID,
+			UserID:  []int64{post.GetHostID(), post.GetVisitorID()},
+			Content: item.Content,
+			Type:    item.Type,
+			Sort:    item.Sort,
 		}
-		s.Ds.CreateCommentContent(postContent)
+		s.Ds.CreatePostContent(postContent)
 	}
 
 	// 更新Post回复数
@@ -577,7 +635,7 @@ func (s *privSrv) CreateComment(req *web.CreateCommentReq) (_ *web.CreateComment
 	s.PushPostToSearch(post)
 
 	// 创建用户消息提醒
-	postMaster, err := s.Ds.GetUserByID(post.UserID)
+	postMaster, err := s.Ds.GetUserByID(post.GetHostID())
 	if err == nil && postMaster.ID != req.Uid {
 		onCreateMessageEvent(&ms.Message{
 			SenderUserID:   req.Uid,
@@ -649,6 +707,12 @@ func (s *privSrv) StarTweet(req *web.StarTweetReq) (*web.StarTweetResp, mir.Erro
 	}, nil
 }
 
+
+
+
+
+
+
 func (s *privSrv) VisibleTweet(req *web.VisibleTweetReq) (*web.VisibleTweetResp, mir.Error) {
 	if req.Visibility >= web.TweetVisitInvalid {
 		return nil, xerror.InvalidParams
@@ -657,8 +721,8 @@ func (s *privSrv) VisibleTweet(req *web.VisibleTweetReq) (*web.VisibleTweetResp,
 	if err != nil {
 		return nil, web.ErrVisblePostFailed
 	}
-	if xerr := checkPermision(req.User, post.UserID); xerr != nil {
-		return nil, xerr
+	if err := checkPermision(req.User, post.GetHostID()); err != nil {
+		return nil, err
 	}
 	if err = s.Ds.VisiblePost(post, req.Visibility.ToVisibleValue()); err != nil {
 		logrus.Warnf("s.Ds.VisiblePost: %s", err)
@@ -712,7 +776,7 @@ func (s *privSrv) LockTweet(req *web.LockTweetReq) (*web.LockTweetResp, mir.Erro
 	if err != nil {
 		return nil, web.ErrLockPostFailed
 	}
-	if post.UserID != req.User.ID && !req.User.IsAdmin {
+	if post.GetHostID() != req.User.ID && !req.User.IsAdmin {
 		return nil, web.ErrNoPermission
 	}
 	newStatus := 1 - post.IsLock
@@ -789,7 +853,7 @@ func (s *privSrv) createPostStar(postID, userID int64) (*ms.PostStar, mir.Error)
 
 	// 私密post不可操作
 	// TODO: 使用统一的permission checker来检查权限问题，这里好友可见post就没处理，是bug
-	if post.Visibility == core.PostVisitPrivate && post.UserID != userID {
+	if post.Visibility == core.PostVisitPrivate && post.GetHostID() != userID {
 		return nil, web.ErrNoPermission
 	}
 
@@ -815,7 +879,7 @@ func (s *privSrv) deletePostStar(star *ms.PostStar) mir.Error {
 
 	// 私密post特殊处理
 	// TODO: 使用统一的permission checker来检查权限问题，这里好友可见post就没处理，是bug
-	if post.Visibility == core.PostVisitPrivate && post.UserID != star.UserID {
+	if post.Visibility == core.PostVisitPrivate && post.GetHostID() != star.UserID {
 		return web.ErrNoPermission
 	}
 
@@ -840,7 +904,7 @@ func (s *privSrv) createPostCollection(postID, userID int64) (*ms.PostCollection
 
 	// 私密post特殊处理
 	// TODO: 使用统一的permission checker来检查权限问题，这里好友可见post就没处理，是bug
-	if post.Visibility == core.PostVisitPrivate && post.UserID != userID {
+	if post.Visibility == core.PostVisitPrivate && post.GetHostID() != userID {
 		return nil, web.ErrNoPermission
 	}
 
@@ -866,7 +930,7 @@ func (s *privSrv) deletePostCollection(collection *ms.PostCollection) mir.Error 
 
 	// 私密post特殊处理
 	// TODO: 使用统一的permission checker来检查权限问题，这里好友可见post就没处理，是bug
-	if post.Visibility == core.PostVisitPrivate && post.UserID != collection.UserID {
+	if post.Visibility == core.PostVisitPrivate && post.GetHostID() != collection.UserID {
 		return web.ErrNoPermission
 	}
 	if err = s.Ds.DeletePostCollection(collection); err != nil {

@@ -78,6 +78,9 @@ func newService() (ss []Service) {
 		"Metrics": func() {
 			ss = append(ss, newMetricsService())
 		},
+		"ContactPush": func() {
+			ss = append(ss, newContactPushService())
+		},
 	})
 	return
 }

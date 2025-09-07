@@ -158,7 +158,7 @@ func (s *commentManageSrv) HighlightComment(userId, commentId int64) (isEssence 
 	if err = s.db.Table(_post_).Where("id=?", comment.PostID).First(post).Error; err != nil {
 		return
 	}
-	if post.UserID != userId {
+	if post.GetHostID() != userId {
 		return 0, cs.ErrNoPermission
 	}
 	isEssence = 1 - comment.IsEssence

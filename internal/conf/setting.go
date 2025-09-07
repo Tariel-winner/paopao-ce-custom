@@ -121,6 +121,8 @@ type cacheConf struct {
 	UserInfoExpire       int64
 	UserProfileExpire    int64
 	UserRelationExpire   int64
+	ContactMatchedExpire int64
+	ContactOnlineExpire  int64
 }
 
 type eventManagerConf struct {
@@ -140,8 +142,9 @@ type metricManagerConf struct {
 }
 
 type jobManagerConf struct {
-	MaxOnlineInterval     string
-	UpdateMetricsInterval string
+	MaxOnlineInterval        string
+	UpdateMetricsInterval    string
+	ContactMatchingInterval  string
 }
 
 type cacheIndexConf struct {

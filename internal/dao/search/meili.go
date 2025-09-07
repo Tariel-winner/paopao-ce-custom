@@ -33,7 +33,7 @@ type meiliTweetSearchServant struct {
 
 type postInfo struct {
 	ID              int64             `json:"id"`
-	UserID          int64             `json:"user_id"`
+	UserID          []int64           `json:"user_id"`
 	CommentCount    int64             `json:"comment_count"`
 	CollectionCount int64             `json:"collection_count"`
 	UpvoteCount     int64             `json:"upvote_count"`
@@ -216,7 +216,7 @@ func (s *meiliTweetSearchServant) toDocs(data []core.TsDocItem) []map[string]any
 	for _, d := range data {
 		docs = append(docs, map[string]any{
 			"id":                d.Post.ID,
-			"user_id":           d.Post.UserID,
+			"user_id":           d.Post.GetHostID(),
 			"comment_count":     d.Post.CommentCount,
 			"collection_count":  d.Post.CollectionCount,
 			"upvote_count":      d.Post.UpvoteCount,

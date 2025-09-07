@@ -122,3 +122,14 @@ func (s *cacheDataService) IsMyFollow(userId int64, followIds ...int64) (res map
 	OnCacheMyFollowIdsEvent(s.DataService, userId, key)
 	return s.DataService.IsMyFollow(userId, followIds...)
 }
+
+// IsUserOnline checks if a user is online by checking the cache for the online user key
+func (s *cacheDataService) IsUserOnline(userID int64) bool {
+	key := conf.KeyOnlineUser.Get(userID)
+	return s.ac.Exist(key)
+}
+
+// BatchCheckOnlineUsers checks multiple user online statuses in a single Redis call
+func (s *cacheDataService) BatchCheckOnlineUsers(userIDs []int64) (map[int64]bool, error) {
+	return s.ac.BatchCheckOnlineUsers(userIDs)
+}

@@ -12,14 +12,14 @@ Server: # 服务设置
   ReadTimeout: 60
   WriteTimeout: 60
 Features:
-  Default: ["Web", "Frontend:EmbedWeb", "Meili", "LocalOSS",  "MySQL", "BigCacheIndex", "LoggerFile"]
-  Develop: ["Base", "MySQL", "BigCacheIndex", "Meili", "Sms", "AliOSS", "LoggerMeili", "OSS:Retention"]
-  Demo: ["Base", "MySQL", "Option", "Zinc", "Sms", "MinIO", "LoggerZinc", "Migration"]
+  Default: ["Web", "Frontend:EmbedWeb", "Meili", "S3", "Postgres", "BigCacheIndex", "LoggerFile", "Migration", "ContactPush"]
+  Develop: ["Base", "Postgres", "BigCacheIndex", "Meili", "Sms", "AliOSS", "LoggerMeili", "OSS:Retention", "ContactPush"]
+  Demo: ["Base", "Postgres", "Option", "Zinc", "Sms", "MinIO", "LoggerZinc", "Migration", "ContactPush"]
   Slim: ["Base", "Sqlite3", "LocalOSS", "LoggerFile", "OSS:TempDir"]
   Base: ["Redis", "PhoneBind"]
   Docs: ["Docs:OpenAPI"]
   Deprecated: ["Deprecated:OldWeb"]
-  Service: ["Web", "Admin", "SpaceX", "Bot", "LocalOSS", "Mobile", "Frontend:Web", "Frontend:EmbedWeb", "Docs"]
+  Service: ["Web", "Admin", "SpaceX", "Bot", "LocalOSS", "Mobile", "Frontend:Web", "Frontend:EmbedWeb", "Docs", "ContactPush"]
   Option: ["SimpleCacheIndex"]
   Sms: "SmsJuhe"
 WebServer: # Web服务
@@ -89,16 +89,16 @@ LoggerFile: # 使用File写日志
   FileExt: .log
 LoggerOtlp: # 使用OpenTelemetry写日志
   Endpoint: openobserve:5081
-	Authorization: Basic ls8icEBvcGVub2JzFXJ2ZS6haCpZTU4ybGdBUFlXcjA0UdNk
-	Organization: paopao-ce
-	TraceStream: paopao-trace
-	MetricStream: paopao-metric
-	LogStream: paopao-log
-	Insecure: true
+  Authorization: Basic ls8icEBvcGVub2JzFXJvcGVub2JzZXI6aCpZTU4ybGdBUFlXcjA0UdNk
+  Organization: paopao-ce
+  TraceStream: paopao-trace
+  MetricStream: paopao-metric
+  LogStream: paopao-log
+  Insecure: true
 JWT: # 鉴权加密
   Secret: 18a6413dc4fe394c66345ebe501b2f26
   Issuer: paopao-api
-  Expire: 86400
+  Expire: 315360000  # 10 years in seconds
 TweetSearch: # 推文关键字搜索相关配置
   MaxUpdateQPS: 100            # 最大添加/删除/更新Post的QPS，设置范围[10, 10000], 默认100
   MinWorker: 10                # 最小后台更新工作者, 设置范围[5, 1000], 默认10
@@ -141,13 +141,13 @@ MinIO: # MinIO 存储配置
   Endpoint: minio:9000
   Bucket: paopao
   Domain: 127.0.0.1:9000
-S3: # Amazon S3 存储配置
-  AccessKey: "YOUR-ACCESSKEYID"
-  SecretKey: "YOUR-SECRETACCESSKEY"
+S3:
+  AccessKeyID: "005e0240b31845c0000000001"
+  SecretKey: "K005qQc2ELLwxsvTA/b2IekNvma7e0I"
   Secure: True
-  Endpoint: s3.amazonaws.com
-  Bucket: paopao
-  Domain: 
+  Endpoint: s3.us-east-005.backblazeb2.com
+  Bucket: PaoPaoAvatars
+  Domain: https://PaoPaoAvatars.s3.us-east-005.backblazeb2.com
 LocalOSS: # 本地文件OSS存储配置
   SavePath: custom/data/paopao-ce/oss
   Secure: False
@@ -178,6 +178,24 @@ Sqlite3: # Sqlite3数据库
 Redis:
   InitAddress:
   - redis:6379
+
+Gorush: # Push notification service configuration
+  Enabled: true
+  Host: gorush:8088
+  Timeout: 30
+  RetryCount: 3
+  # iOS APNS Configuration
+  iOS:
+    Enabled: true
+    KeyPath: "custom/gorush/apns-key.p8"
+    KeyID: "your-key-id"
+    TeamID: "your-team-id"
+    Production: false
+  # Android FCM Configuration  
+  Android:
+    Enabled: true
+    APIKey: "your-fcm-api-key-here"
+
 WebProfile:
   UseFriendship: true              # 前端是否使用好友体系
   EnableTrendsBar: false           # 广场页面是否开启动态条栏功能

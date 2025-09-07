@@ -61,13 +61,28 @@ func (f *Following) ListFollowingIds(db *gorm.DB, userId int64, limit, offset in
 }
 
 func (f *Following) FollowCount(db *gorm.DB, userId int64) (follows int64, followings int64, err error) {
-	if err = db.Model(f).Where("user_id=?", userId).Count(&follows).Error; err != nil {
+	if err = db.Model(f).Where("follow_id=?", userId).Count(&follows).Error; err != nil {
 		return
 	}
-	if err = db.Model(f).Where("follow_id=?", userId).Count(&followings).Error; err != nil {
+	if err = db.Model(f).Where("user_id=?", userId).Count(&followings).Error; err != nil {
 		return
 	}
 	return
+}
+
+func (f *Following) UpdateFollowCount(db *gorm.DB, userId int64) error {
+	follows, followings, err := f.FollowCount(db, userId)
+	if err != nil {
+		return err
+	}
+	
+	// Update user metrics
+	return db.Model(&UserMetric{}).
+		Where("user_id = ?", userId).
+		Updates(map[string]interface{}{
+			"follows": follows,
+			"followings": followings,
+		}).Error
 }
 
 func (s *Following) IsFollow(db *gorm.DB, userId int64, followId int64) bool {

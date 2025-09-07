@@ -131,7 +131,7 @@ func (s *walletSrv) HandlePostAttachmentBought(post *ms.Post, user *ms.User) err
 		if income > 0 {
 			master := &dbr.User{
 				Model: &dbr.Model{
-					ID: post.UserID,
+					ID: post.GetHostID(),
 				},
 			}
 			master, _ = master.Get(s.db)

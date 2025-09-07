@@ -6,6 +6,8 @@ package cache
 
 import (
 	"context"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/redis/rueidis"
@@ -113,6 +115,38 @@ func (s *appCache) Keys(pattern string) (res []string, err error) {
 	return
 }
 
+// BatchCheckOnlineUsers checks multiple user online statuses in a single Redis call
+func (s *appCache) BatchCheckOnlineUsers(userIDs []int64) (map[int64]bool, error) {
+	if len(userIDs) == 0 {
+		return make(map[int64]bool), nil
+	}
+	
+	ctx := context.Background()
+	onlineStatus := make(map[int64]bool)
+	
+	// Build Redis keys for all users
+	keys := make([]string, len(userIDs))
+	for i, userID := range userIDs {
+		keys[i] = conf.KeyOnlineUser.Get(userID)
+	}
+	
+	// Use MGET to check all keys at once
+	cmd := s.c.B().Mget().Key(keys...).Build()
+	res, err := s.c.Do(ctx, cmd).AsStrSlice()
+	if err != nil {
+		return nil, err
+	}
+	
+	// Map results back to user IDs
+	for i, userID := range userIDs {
+		// If the key exists (not nil), user is online
+		onlineStatus[userID] = res[i] != ""
+	}
+	
+	return onlineStatus, nil
+}
+
+
 func (s *webCache) GetUnreadMsgCountResp(uid int64) ([]byte, error) {
 	key := conf.KeyUnreadMsg.Get(uid)
 	return s.Get(key)
@@ -153,6 +187,101 @@ func newAppCache() *appCache {
 		c:         conf.MustRedisClient(),
 	}
 }
+
+// GetOnlineUsersWithCursor implements cursor-based pagination for online users with their locations
+// This prevents duplication even with constantly changing Redis keys
+// Returns: userIDs, locations map[userID]location, nextCursor, error
+func (s *appCache) GetOnlineUsersWithCursor(cursor uint64, limit int) ([]int64, map[int64]string, uint64, error) {
+	var userIDs []int64
+	var scannedCount int
+	var nextCursor uint64
+	
+	ctx := context.Background()
+	
+	for {
+		// Scan next batch of keys with pattern "paopao:onlineuser:*"
+		cmd := s.c.B().Scan().Cursor(cursor).Match("paopao:onlineuser:*").Count(100).Build()
+		entry, err := s.c.Do(ctx, cmd).AsScanEntry()
+		if err != nil {
+			return nil, nil, 0, err
+		}
+		
+		nextCursor = entry.Cursor // Store the cursor outside the loop
+		
+		// Convert keys to user IDs
+		for _, key := range entry.Elements {
+			// Extract user ID from key like "paopao:onlineuser:12345"
+			userIDStr := strings.TrimPrefix(key, "paopao:onlineuser:")
+			if userIDStr != key { // Make sure prefix was found
+				if userID, err := strconv.ParseInt(userIDStr, 10, 64); err == nil {
+					userIDs = append(userIDs, userID)
+					scannedCount++
+					
+					// Stop if we reached the limit
+					if scannedCount >= limit {
+						break
+					}
+				}
+			}
+		}
+		
+		// Break if we have enough users or Redis cursor is 0
+		if scannedCount >= limit || entry.Cursor == 0 {
+			break
+		}
+		
+		cursor = entry.Cursor
+	}
+	
+	// Now batch fetch locations for all found online users
+	locations := make(map[int64]string)
+	if len(userIDs) > 0 {
+		locationKeys := make([]string, len(userIDs))
+		for i, userID := range userIDs {
+			locationKeys[i] = conf.KeyUserLocation.Get(userID)
+		}
+		
+		// Use MGET to get all location keys at once
+		cmd := s.c.B().Mget().Key(locationKeys...).Build()
+		res, err := s.c.Do(ctx, cmd).AsStrSlice()
+		if err == nil { // Don't fail if locations can't be fetched
+			// Map results back to user IDs
+			for i, userID := range userIDs {
+				if i < len(res) && res[i] != "" {
+					locations[userID] = res[i] // Format: "Country|City" or "Country"
+				}
+			}
+		}
+	}
+	
+	return userIDs, locations, nextCursor, nil
+}
+
+
+// GetOnlineUsersCount gets the total count of online users by counting keys
+func (s *appCache) GetOnlineUsersCount() (int64, error) {
+	ctx := context.Background()
+	var totalCount int64
+	var cursor uint64
+	
+	for {
+		cmd := s.c.B().Scan().Cursor(cursor).Match("paopao:onlineuser:*").Count(100).Build()
+		entry, err := s.c.Do(ctx, cmd).AsScanEntry()
+		if err != nil {
+			return 0, err
+		}
+		
+		totalCount += int64(len(entry.Elements))
+		
+		if entry.Cursor == 0 {
+			break
+		}
+		cursor = entry.Cursor
+	}
+	
+	return totalCount, nil
+}
+
 
 func newWebCache(ac core.AppCache) *webCache {
 	return &webCache{

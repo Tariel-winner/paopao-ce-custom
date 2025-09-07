@@ -43,10 +43,13 @@ type dataSrv struct {
 	core.UserManageService
 	core.UserMetricServantA
 	core.ContactManageService
+	core.DeviceManageService
 	core.FollowingManageService
 	core.UserRelationService
 	core.SecurityService
 	core.AttachmentCheckService
+	core.RoomService
+	core.CategoryService
 }
 
 type webDataSrvA struct {
@@ -64,6 +67,7 @@ func NewDataService() (core.DataService, core.VersionInfo) {
 	ums := newUserMetricServentA(db)
 	cms := newCommentMetricServentA(db)
 	cis := cache.NewEventCacheIndexSrv(tms)
+	userManageService := newUserManageService(db, ums)
 	ds := &dataSrv{
 		TweetMetricServantA:    tms,
 		CommentMetricServantA:  cms,
@@ -77,12 +81,15 @@ func NewDataService() (core.DataService, core.VersionInfo) {
 		CommentService:         newCommentService(db),
 		CommentManageService:   newCommentManageService(db),
 		TrendsManageServantA:   newTrendsManageServentA(db),
-		UserManageService:      newUserManageService(db, ums),
+		UserManageService:      userManageService,
 		ContactManageService:   newContactManageService(db),
+		DeviceManageService:    newDeviceManageService(db),
 		FollowingManageService: newFollowingManageService(db),
 		UserRelationService:    newUserRelationService(db),
 		SecurityService:        newSecurityService(db, pvs),
 		AttachmentCheckService: security.NewAttachmentCheckService(),
+		RoomService:            newRoomService(db, userManageService, newCategoryService(db)),
+		CategoryService:        newCategoryService(db),
 	}
 	return cache.NewCacheDataService(ds), ds
 }
@@ -124,4 +131,18 @@ func lazyInitial() {
 	_onceInitial.Do(func() {
 		initTableName()
 	})
+}
+
+// Session mapping methods for DataService interface
+func (s *dataSrv) SaveSessionMapping(roomID, sessionID, peerID, userID string) error {
+	return s.RoomService.SaveSessionMapping(roomID, sessionID, peerID, userID)
+}
+
+func (s *dataSrv) GetUserIDFromSession(roomID, sessionID, peerID string) (string, error) {
+	return s.RoomService.GetUserIDFromSession(roomID, sessionID, peerID)
+}
+
+// User online status method for DataService interface
+func (s *dataSrv) IsUserOnline(userID int64) bool {
+	return s.RoomService.IsUserOnline(userID)
 }

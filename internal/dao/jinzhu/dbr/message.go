@@ -14,6 +14,8 @@ const (
 	MsgTypeReply
 	MsgTypeWhisper
 	MsgTypeRequestingFriend
+	MsgTypeFollow
+	MsgTypeUserReaction
 	MsgTypeSystem MessageT = 99
 
 	MsgStatusUnread = 0

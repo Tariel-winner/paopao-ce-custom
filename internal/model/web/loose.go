@@ -5,6 +5,9 @@
 package web
 
 import (
+	"net/http"
+	"strconv"
+
 	"github.com/alimy/mir/v4"
 	"github.com/gin-gonic/gin"
 	"github.com/rocboss/paopao-ce/internal/conf"
@@ -84,18 +87,21 @@ type GetUserProfileReq struct {
 }
 
 type GetUserProfileResp struct {
-	ID          int64  `json:"id"`
-	Nickname    string `json:"nickname"`
-	Username    string `json:"username"`
-	Status      int    `json:"status"`
-	Avatar      string `json:"avatar"`
-	IsAdmin     bool   `json:"is_admin"`
-	IsFriend    bool   `json:"is_friend"`
-	IsFollowing bool   `json:"is_following"`
-	CreatedOn   int64  `json:"created_on"`
-	Follows     int64  `json:"follows"`
-	Followings  int64  `json:"followings"`
-	TweetsCount int    `json:"tweets_count"`
+	ID          int64            `json:"id"`
+	Nickname    string           `json:"nickname"`
+	Username    string           `json:"username"`
+	Status      int              `json:"status"`
+	Avatar      string           `json:"avatar"`
+	IsAdmin     bool             `json:"is_admin"`
+	IsFriend    bool             `json:"is_friend"`
+	IsFollowing bool             `json:"is_following"`
+	CreatedOn   int64            `json:"created_on"`
+	Follows     int64            `json:"follows"`
+	Followings  int64            `json:"followings"`
+	TweetsCount int              `json:"tweets_count"`
+	Categories  []int64          `json:"categories,omitempty"`
+	ReactionCounts map[int64]int64 `json:"reaction_counts"` // reaction_type_id -> count (reactions received)
+ 	IsOnline    bool             `json:"is_online,omitempty" gorm:"-"` // User's online status (optional, not in DB)
 }
 
 type TopicListReq struct {
@@ -118,6 +124,44 @@ type TweetDetailReq struct {
 }
 
 type TweetDetailResp ms.PostFormated
+
+// PostLocationReq represents the request for getting post location
+type PostLocationReq struct {
+	BaseInfo `form:"-" binding:"-"`
+	PostID   int64  `uri:"postId" binding:"required"`
+	Username string `form:"username" binding:"required"`
+}
+
+// Bind implements custom binding for path parameters
+func (r *PostLocationReq) Bind(c *gin.Context) mir.Error {
+	user, _ := base.UserFrom(c)
+	r.BaseInfo = BaseInfo{
+		User: user,
+	}
+	
+	// Get postId from path parameter
+	if postIdStr := c.Param("postId"); postIdStr != "" {
+		if postId, err := strconv.ParseInt(postIdStr, 10, 64); err == nil {
+			r.PostID = postId
+		} else {
+			return mir.Errorln(http.StatusBadRequest, "Invalid post ID")
+		}
+	}
+	
+	// Get username from query parameter
+	r.Username = c.Query("username")
+	
+	return nil
+}
+
+// PostLocationResp represents the response for post location
+type PostLocationResp struct {
+	PostID     int64 `json:"post_id"`
+	Page       int   `json:"page"`
+	PageSize   int   `json:"page_size"`
+	TotalPosts int64 `json:"total_posts"`
+	Position   int   `json:"position"` // Position within the page (1-based)
+}
 
 func (r *GetUserTweetsReq) SetPageInfo(page int, pageSize int) {
 	r.Page, r.PageSize = page, pageSize

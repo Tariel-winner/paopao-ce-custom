@@ -9,8 +9,10 @@ import (
 	"encoding/binary"
 	"net"
 	"strings"
+	"sync"
 
 	"github.com/yinheli/mahonia"
+	"github.com/oschwald/geoip2-golang"
 )
 
 // Note: This file is a modified version of https://github.com/yinheli/qqwry.
@@ -18,11 +20,39 @@ import (
 //go:embed qqwry.dat
 var qqwry []byte
 
+var (
+	maxmindReader *geoip2.Reader
+	maxmindOnce   sync.Once
+)
+
 const (
 	cIndexLen      = 7
 	cRedirectMode1 = 0x01
 	cRedirectMode2 = 0x02
 )
+
+// initMaxMind initializes MaxMind reader once from file system
+func initMaxMind() {
+	maxmindOnce.Do(func() {
+		// Try multiple possible paths for MaxMind database
+		possiblePaths := []string{
+			"pkg/utils/iploc/GeoLite2-City.mmdb",  // From project root
+			"GeoLite2-City.mmdb",                  // From current directory
+			"./GeoLite2-City.mmdb",                // Relative to current
+		}
+		
+		var err error
+		for _, path := range possiblePaths {
+			maxmindReader, err = geoip2.Open(path)
+			if err == nil {
+				// Successfully loaded
+				return
+			}
+		}
+		// All paths failed - use QQWry only
+		maxmindReader = nil
+	})
+}
 
 // Find get country and city base ip. return empty country
 // and city when ip that pass from argument is empty string
@@ -34,6 +64,47 @@ func Find(ip string) (string, string) {
 		return "", ""
 	}
 
+	// Use only MaxMind for consistent English results
+	return findWithMaxMind(ip)
+}
+
+// findWithMaxMind tries to get location using MaxMind GeoLite2
+func findWithMaxMind(ip string) (string, string) {
+	initMaxMind()
+	if maxmindReader == nil {
+		return "", ""
+	}
+
+	parsedIP := net.ParseIP(ip)
+	if parsedIP == nil {
+		return "", ""
+	}
+
+	record, err := maxmindReader.City(parsedIP)
+	if err != nil {
+		return "", ""
+	}
+
+	country := ""
+	city := ""
+
+	if record.Country.Names != nil {
+		if name, exists := record.Country.Names["en"]; exists {
+			country = name
+		}
+	}
+
+	if record.City.Names != nil {
+		if name, exists := record.City.Names["en"]; exists {
+			city = name
+		}
+	}
+
+	return country, city
+}
+
+// findWithQQWry uses the original QQWry implementation
+func findWithQQWry(ip string) (string, string) {
 	to4 := net.ParseIP(ip).To4()
 	// If ip is "::1", To4 returns nil.
 	if to4 == nil {

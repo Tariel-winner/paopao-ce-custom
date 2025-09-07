@@ -46,20 +46,26 @@ type TweetReplyThumbsReq struct {
 }
 
 type PostContentItem struct {
-	Content string          `json:"content"  binding:"required"`
-	Type    ms.PostContentT `json:"type"  binding:"required"`
-	Sort    int64           `json:"sort"  binding:"required"`
+	Content string          `json:"content" binding:"required"`
+	Type    ms.PostContentT `json:"type" binding:"required"`
+	Sort    int64          `json:"sort" binding:"required"`
+	// New fields for audio content
+	
+	Duration string `json:"duration"`
+	Size     string `json:"size"`
 }
 
-type CreateTweetReq struct {
-	BaseInfo        `json:"-" binding:"-"`
-	Contents        []*PostContentItem `json:"contents" binding:"required"`
-	Tags            []string           `json:"tags" binding:"required"`
-	Users           []string           `json:"users" binding:"required"`
-	AttachmentPrice int64              `json:"attachment_price"`
-	Visibility      TweetVisibleType   `json:"visibility"`
-	ClientIP        string             `json:"-" binding:"-"`
-}
+	type CreateTweetReq struct {
+		BaseInfo        `json:"-" binding:"-"`
+		Contents        []*PostContentItem `json:"contents" binding:"required"`
+		Tags            []string           `json:"tags" binding:"required"`
+		Users           []string           `json:"users" binding:"required"`
+		AttachmentPrice int64              `json:"attachment_price"`
+		Visibility      TweetVisibleType   `json:"visibility"`
+		ClientIP        string             `json:"-" binding:"-"`
+		RoomID          string             `json:"room_id"`
+		SessionID       string             `json:"session_id"`
+	}
 
 type CreateTweetResp ms.PostFormated
 
@@ -69,13 +75,19 @@ type DeleteTweetReq struct {
 }
 
 type StarTweetReq struct {
-	SimpleInfo `json:"-" binding:"-"`
-	ID         int64 `json:"id" binding:"required"`
+	SimpleInfo      `json:"-" binding:"-"`
+	ID              int64 `json:"id" binding:"required"`
+	ReactionTypeID  int64 `json:"reaction_type_id"` // New: specify reaction type (1=like, 2=love, etc.)
 }
 
 type StarTweetResp struct {
-	Status bool `json:"status"`
+	Status         bool   `json:"status"`
+	ReactionTypeID int64  `json:"reaction_type_id"` // New: return which reaction was set
+	ReactionName   string `json:"reaction_name"`    // New: human-readable reaction name
+	ReactionIcon   string `json:"reaction_icon"`    // New: reaction emoji/icon
 }
+
+
 
 type CollectionTweetReq struct {
 	SimpleInfo `json:"-" binding:"-"`
@@ -224,6 +236,39 @@ type FollowTopicReq struct {
 type UnfollowTopicReq struct {
 	SimpleInfo `json:"-" binding:"-"`
 	TopicId    int64 `json:"topic_id" binding:"required"`
+}
+
+type AudioWebhookReq struct {
+	Type string `json:"type" binding:"required"`
+	Data struct {
+		RecordingID        string  `json:"recording_id" binding:"required"`
+		RoomID            string  `json:"room_id" binding:"required"`
+		RecordingURL      string  `json:"recording_presigned_url" binding:"required"`
+		Duration          float64 `json:"duration"`
+		Size              int64   `json:"size"`
+		PeerID            string  `json:"peer_id" binding:"required"`
+		SessionID         string  `json:"session_id" binding:"required"`
+		StreamID          string  `json:"stream_id"`
+		TrackID           string  `json:"track_id"`
+		TrackType         string  `json:"track_type"`
+		RecordingPath     string  `json:"recording_path"`
+	} `json:"data" binding:"required"`
+}
+
+type SessionRegistrationReq struct {
+	Sessions []SessionMapping `json:"sessions" binding:"required"`
+}
+
+type SessionMapping struct {
+	RoomID    string `json:"room_id" binding:"required"`
+	SessionID string `json:"session_id" binding:"required"`
+	PeerID    string `json:"peer_id" binding:"required"`
+	UserID    string `json:"user_id" binding:"required"`
+}
+
+type SessionRegistrationResp struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
 }
 
 // Check 检查PostContentItem属性

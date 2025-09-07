@@ -369,6 +369,9 @@ func (s *looseSrv) GetUserProfile(req *web.GetUserProfileReq) (*web.GetUserProfi
 		Follows:     follows,
 		Followings:  followings,
 		TweetsCount: he.TweetsCount,
+		Categories: he.Categories,
+		ReactionCounts: he.ReactionCounts,
+		IsOnline:   s.Ds.IsUserOnline(he.ID), // Add online status
 	}, nil
 }
 
@@ -512,7 +515,7 @@ func (s *looseSrv) TweetDetail(req *web.TweetDetailReq) (*web.TweetDetailResp, m
 	if err != nil {
 		return nil, web.ErrGetPostFailed
 	}
-	users, err := s.Ds.GetUsersByIDs([]int64{post.UserID})
+	users, err := s.Ds.GetUsersByIDs([]int64{post.GetHostID()})
 	if err != nil {
 		return nil, web.ErrGetPostFailed
 	}
@@ -532,7 +535,7 @@ func (s *looseSrv) TweetDetail(req *web.TweetDetailReq) (*web.TweetDetailResp, m
 	// 检测访问权限
 	// TODO: 提到最前面去检测
 	switch {
-	case req.User != nil && (req.User.ID == postFormated.User.ID || req.User.IsAdmin):
+	case req.User != nil && (req.User.ID == postFormated.GetHostID() || req.User.IsAdmin):
 		// read by self of super admin
 		break
 	case post.Visibility == core.PostVisitPublic:
@@ -545,6 +548,32 @@ func (s *looseSrv) TweetDetail(req *web.TweetDetailReq) (*web.TweetDetailResp, m
 		return nil, web.ErrNoPermission
 	}
 	return (*web.TweetDetailResp)(postFormated), nil
+}
+
+// GetPostLocation calculates the page and position of a post in a user's timeline
+// This is a separate method to avoid breaking existing logic
+func (s *looseSrv) GetPostLocation(req *web.PostLocationReq) (*web.PostLocationResp, mir.Error) {
+	// Get user by username
+	user, xerr := s.Ds.GetUserByUsername(req.Username)
+	if xerr != nil {
+		logrus.Errorf("looseSrv.GetPostLocation occurs error[1]: %s", xerr)
+		return nil, web.ErrGetUserFailed
+	}
+
+	// Get post location with optimized query
+	page, position, totalPosts, xerr := s.Ds.GetPostLocation(req.PostID, user.ID, 20) // Default page size of 20
+	if xerr != nil {
+		logrus.Errorf("looseSrv.GetPostLocation occurs error[2]: %s", xerr)
+		return nil, web.ErrGetPostLocationFailed
+	}
+
+	return &web.PostLocationResp{
+		PostID:     req.PostID,
+		Page:       page,
+		PageSize:   20,
+		TotalPosts: totalPosts,
+		Position:   position,
+	}, nil
 }
 
 func newLooseSrv(s *base.DaoServant, ac core.AppCache) api.Loose {

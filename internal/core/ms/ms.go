@@ -20,7 +20,13 @@ type (
 	Post                = dbr.Post
 	ConditionsT         = dbr.ConditionsT
 	PostFormated        = dbr.PostFormated
-	UserFormated        = dbr.UserFormated
 	PostContentFormated = dbr.PostContentFormated
+	UserFormated        = dbr.UserFormated
+	UserReactionWithUser = dbr.UserReactionWithUser
 	Model               = dbr.Model
+	Room                = dbr.Room
+	Queue               = dbr.Queue
+	Category            = dbr.Category
+	UserCategory        = dbr.UserCategory
+	UserReaction        = dbr.UserReaction
 )

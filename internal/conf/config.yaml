@@ -15,11 +15,13 @@ Cache:
   IndexTweetsExpire: 120      # 获取广场推文列表过期时间，单位秒， 默认120s
   TweetCommentsExpire: 120    # 获取推文评论过期时间，单位秒， 默认120s
   IndexTrendsExpire: 120      # 获取广场动态信息过期时间，单位秒， 默认120s
-  OnlineUserExpire: 300       # 标记在线用户 过期时间，单位秒， 默认300s
+  OnlineUserExpire: 30        # 标记在线用户 过期时间，单位秒， 默认30s
   UserInfoExpire: 120         # 获取用户信息过期时间，单位秒， 默认120s
   UserProfileExpire: 120      # 获取用户概要过期时间，单位秒， 默认120s
   UserRelationExpire: 120     # 用户关系信息过期时间，单位秒， 默认120s
   MessagesExpire: 60          # 消息列表过期时间，单位秒， 默认60s
+  ContactMatchedExpire: 3600  # 联系人匹配通知过期时间，单位秒， 默认3600s (1小时)
+  ContactOnlineExpire: 1800   # 联系人上线通知过期时间，单位秒， 默认1800s (30分钟)
 EventManager: # 事件管理器的配置参数
   MinWorker: 64               # 最小后台工作者, 设置范围[5, ++], 默认64
   MaxTempWorker: -1           # 最大临时工作者, -1为无限制, 默认-1
@@ -35,6 +37,7 @@ MetricManager: # 指标监控管理器的配置参数
 JobManager: # Cron Job理器的配置参数
   MaxOnlineInterval: "@every 5m"       # 更新最大在线人数，默认每5分钟更新一次
   UpdateMetricsInterval: "@every 5m"   # 更新Prometheus指标，默认每5分钟更新一次
+  ContactMatchingInterval: "@every 1m" # 联系人匹配任务，每1分钟执行一次 (测试模式)
 Features:
   Default: []
 WebServer: # Web服务

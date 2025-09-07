@@ -13,9 +13,10 @@ import (
 
 type PostCollection struct {
 	*Model
-	Post   *Post `json:"-"`
-	PostID int64 `db:"post_id" json:"post_id"`
-	UserID int64 `db:"user_id" json:"user_id"`
+	Post            *Post `json:"-"`
+	PostID          int64 `db:"post_id" json:"post_id"`
+	UserID          int64 `db:"user_id" json:"user_id"`
+	ReactionTypeID  int64 `json:"reaction_type_id" gorm:"default:2"` // Default to 'love' (ID=2)
 }
 
 func (p *PostCollection) Get(db *gorm.DB) (*PostCollection, error) {
@@ -29,7 +30,7 @@ func (p *PostCollection) Get(db *gorm.DB) (*PostCollection, error) {
 		db = db.Where(tn+"post_id = ?", p.PostID)
 	}
 	if p.UserID > 0 {
-		db = db.Where(tn+"user_id = ?", p.UserID)
+		db = db.Where(tn+"CAST(user_id->0 AS bigint) = ?", p.UserID)
 	}
 
 	db = db.Joins("Post").Where("visibility <> ? OR (visibility = ? AND ? = ?)", PostVisitPrivate, PostVisitPrivate, clause.Column{Table: "Post", Name: "user_id"}, p.UserID).Order(clause.OrderByColumn{Column: clause.Column{Table: "Post", Name: "id"}, Desc: true})
@@ -63,7 +64,7 @@ func (p *PostCollection) List(db *gorm.DB, conditions *ConditionsT, offset, limi
 		db = db.Offset(offset).Limit(limit)
 	}
 	if p.UserID > 0 {
-		db = db.Where(tn+"user_id = ?", p.UserID)
+		db = db.Where(tn+"CAST(user_id->0 AS bigint) = ?", p.UserID)
 	}
 
 	for k, v := range *conditions {
@@ -90,7 +91,7 @@ func (p *PostCollection) Count(db *gorm.DB, conditions *ConditionsT) (int64, err
 		db = db.Where(tn+"post_id = ?", p.PostID)
 	}
 	if p.UserID > 0 {
-		db = db.Where(tn+"user_id = ?", p.UserID)
+		db = db.Where(tn+"CAST(user_id->0 AS bigint) = ?", p.UserID)
 	}
 	for k, v := range *conditions {
 		if k != "ORDER" {

@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # build frontend
-FROM node:19-alpine AS frontend
+FROM node:20-alpine AS frontend
 ARG API_HOST
 ARG USE_API_HOST=yes
 ARG EMBED_UI=yes

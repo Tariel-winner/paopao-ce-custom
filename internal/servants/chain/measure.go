@@ -13,9 +13,10 @@ func OnlineUserMeasure() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 此midleware后面是真正的http handlder，让handler先执行
 		c.Next()
-		// 更新用户在线状态
+		// 更新用户在线状态和位置信息
 		if uid, ok := base.UserIdFrom(c); ok {
-			OnUserOnlineMetric(_ac, uid)
+			clientIP := c.ClientIP() // 获取客户端IP地址
+			OnUserOnlineMetric(_ac, uid, clientIP)
 		}
 	}
 }

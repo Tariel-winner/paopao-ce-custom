@@ -164,3 +164,4 @@ func (r *redisCache) SetRechargeStatus(ctx context.Context, tradeNo string) erro
 func (r *redisCache) DelRechargeStatus(ctx context.Context, tradeNo string) error {
 	return r.c.Do(ctx, r.c.B().Del().Key(_rechargeStatusKey+tradeNo).Build()).Error()
 }
+

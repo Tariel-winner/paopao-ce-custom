@@ -178,7 +178,7 @@ func (s *BaseServant) Render(c *gin.Context, data any, err mir.Error) {
 	}
 }
 
-func (s *DaoServant) PrepareUser(userId int64, user *ms.UserFormated) error {
+func (s *DaoServant) PrepareUser(userId int64, user *cs.UserFormated) error {
 	// guest用户的userId<0
 	if userId < 0 {
 		return nil
@@ -238,22 +238,22 @@ func (s *DaoServant) PrepareTweet(user *ms.User, tweet *ms.PostFormated) error {
 	}
 	// 转换一下可见性的值
 	tweet.Visibility = ms.PostVisibleT(tweet.Visibility.ToOutValue())
-	friendMap, err := s.Ds.IsMyFriend(user.ID, tweet.UserID)
+	friendMap, err := s.Ds.IsMyFriend(user.ID, tweet.GetHostID())
 	if err != nil {
 		return err
 	}
-	followMap, err := s.Ds.IsMyFollow(user.ID, tweet.UserID)
+	followMap, err := s.Ds.IsMyFollow(user.ID, tweet.GetHostID())
 	if err != nil {
 		return err
 	}
-	tweet.User.IsFriend, tweet.User.IsFollowing = friendMap[tweet.UserID], followMap[tweet.UserID]
+	tweet.User.IsFriend, tweet.User.IsFollowing = friendMap[tweet.GetHostID()], followMap[tweet.GetHostID()]
 	return nil
 }
 
 func (s *DaoServant) PrepareTweets(userId int64, tweets []*ms.PostFormated) error {
 	userIdSet := make(map[int64]types.Empty, len(tweets))
 	for _, tweet := range tweets {
-		userIdSet[tweet.UserID] = types.Empty{}
+		userIdSet[tweet.GetHostID()] = types.Empty{}
 		// 顺便转换一下可见性的值
 		tweet.Visibility = ms.PostVisibleT(tweet.Visibility.ToOutValue())
 	}
@@ -265,17 +265,12 @@ func (s *DaoServant) PrepareTweets(userId int64, tweets []*ms.PostFormated) erro
 	for id := range userIdSet {
 		userIds = append(userIds, id)
 	}
-	// friendMap, err := s.Ds.IsMyFriend(userId, userIds...)
-	// if err != nil {
-	// 	return err
-	// }
 	followMap, err := s.Ds.IsMyFollow(userId, userIds...)
 	if err != nil {
 		return err
 	}
 	for _, tweet := range tweets {
-		// tweet.User.IsFriend, tweet.User.IsFollowing = friendMap[tweet.UserID], followMap[tweet.UserID]
-		tweet.User.IsFollowing = followMap[tweet.UserID]
+		tweet.User.IsFollowing = followMap[tweet.GetHostID()]
 	}
 	return nil
 }
@@ -289,14 +284,26 @@ func (s *DaoServant) GetTweetBy(id int64) (*ms.PostFormated, error) {
 	if err != nil {
 		return nil, err
 	}
-	users, err := s.Ds.GetUsersByIDs([]int64{post.UserID})
+	
+	userIds := []int64{post.GetHostID()}
+	if visitorID := post.GetVisitorID(); visitorID > 0 {
+		userIds = append(userIds, visitorID)
+	}
+	
+	users, err := s.Ds.GetUsersByIDs(userIds)
 	if err != nil {
 		return nil, err
 	}
+	
 	// 数据整合
 	postFormated := post.Format()
 	for _, user := range users {
-		postFormated.User = user.Format()
+		if user.ID == post.GetHostID() {
+			postFormated.User = user.Format()
+		}
+		if user.ID == post.GetVisitorID() {
+			postFormated.Visitor = user.Format()
+		}
 	}
 	for _, content := range postContents {
 		if content.PostID == post.ID {
@@ -363,7 +370,7 @@ func (s *DaoServant) PushPostToSearch(post *ms.Post) {
 func (s *DaoServant) pushPostToSearch(post *ms.Post) {
 	postFormated := post.Format()
 	postFormated.User = &ms.UserFormated{
-		ID: post.UserID,
+		ID: post.GetHostID(),
 	}
 	contents, _ := s.Ds.GetPostContentsByIDs([]int64{post.ID})
 	for _, content := range contents {

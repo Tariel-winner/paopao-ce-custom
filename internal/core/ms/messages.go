@@ -14,6 +14,8 @@ const (
 	MsgTypeReply            = dbr.MsgTypeReply
 	MsgTypeWhisper          = dbr.MsgTypeWhisper
 	MsgTypeRequestingFriend = dbr.MsgTypeRequestingFriend
+	MsgTypeFollow           = dbr.MsgTypeFollow
+	MsgTypeUserReaction     = dbr.MsgTypeUserReaction
 	MsgTypeSystem           = dbr.MsgTypeSystem
 
 	MsgStatusUnread = dbr.MsgStatusUnread

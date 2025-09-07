@@ -17,7 +17,9 @@ import (
 	"github.com/alimy/mir/v4"
 	"github.com/gofrs/uuid/v5"
 	api "github.com/rocboss/paopao-ce/auto/api/v1"
+	"github.com/rocboss/paopao-ce/internal/core/cs"
 	"github.com/rocboss/paopao-ce/internal/core/ms"
+	"github.com/rocboss/paopao-ce/internal/dao/jinzhu/dbr"
 	"github.com/rocboss/paopao-ce/internal/model/web"
 	"github.com/rocboss/paopao-ce/internal/servants/base"
 	"github.com/rocboss/paopao-ce/internal/servants/web/assets"
@@ -106,22 +108,50 @@ func (s *pubSrv) Register(req *web.RegisterReq) (*web.RegisterResp, mir.Error) {
 	}
 	password, salt := encryptPasswordAndSalt(req.Password)
 	user := &ms.User{
-		Nickname: req.Username,
-		Username: req.Username,
-		Password: password,
-		Avatar:   getRandomAvatar(),
-		Salt:     salt,
-		Status:   ms.UserStatusNormal,
+		Nickname:   req.Username,
+		Username:   req.Username,
+		Password:   password,
+		Avatar:     getRandomAvatar(),
+		Salt:       salt,
+		Status:     ms.UserStatusNormal,
+		Categories: dbr.Int64Array(req.Categories), // Convert to custom array type
 	}
 	user, err := s.Ds.CreateUser(user)
 	if err != nil {
 		logrus.Errorf("Ds.CreateUser err: %s", err)
 		return nil, web.ErrUserRegisterFailed
 	}
-	return &web.RegisterResp{
+	
+	// Initialize response
+	resp := &web.RegisterResp{
 		UserId:   user.ID,
 		Username: user.Username,
-	}, nil
+	}
+	
+	// Handle iPhone contacts upload if provided
+	if len(req.Contacts) > 0 {
+		contactsUploaded, contactsMatched, err := s.uploadPhoneContacts(user.ID, req.Contacts)
+		if err != nil {
+			logrus.Errorf("Failed to upload phone contacts: %v", err)
+			// Don't fail registration, just log the error
+		} else {
+			resp.ContactsUploaded = contactsUploaded
+			resp.ContactsMatched = contactsMatched
+		}
+	}
+	
+	// Handle device registration if provided
+	if req.Device != nil {
+		err := s.registerDevice(user.ID, req.Device)
+		if err != nil {
+			logrus.Errorf("Failed to register device: %v", err)
+			// Don't fail registration, just log the error
+		} else {
+			resp.DeviceRegistered = true
+		}
+	}
+	
+	return resp, nil
 }
 
 func (s *pubSrv) Login(req *web.LoginReq) (*web.LoginResp, mir.Error) {
@@ -185,6 +215,32 @@ func (s *pubSrv) validUsername(username string) mir.Error {
 		return web.ErrUsernameHasExisted
 	}
 	return nil
+}
+
+// uploadPhoneContacts handles iPhone contact upload and matching
+func (s *pubSrv) uploadPhoneContacts(userID int64, contacts []web.ContactItem) (int64, int64, error) {
+	// Convert web.ContactItem to core.PhoneContact
+	var phoneContacts []cs.PhoneContact
+	for _, contact := range contacts {
+		phoneContacts = append(phoneContacts, cs.PhoneContact{
+			Name:  contact.Name,
+			Phone: contact.Phone,
+			Email: contact.Email,
+		})
+	}
+	
+	// Upload contacts to database
+	uploaded, matched, err := s.Ds.UploadPhoneContacts(userID, phoneContacts)
+	if err != nil {
+		return 0, 0, err
+	}
+	
+	return uploaded, matched, nil
+}
+
+// registerDevice handles device token registration
+func (s *pubSrv) registerDevice(userID int64, device *web.DeviceInfo) error {
+	return s.Ds.RegisterDevice(userID, device.DeviceToken, device.Platform, device.DeviceID, device.DeviceName)
 }
 
 func newPubSrv(s *base.DaoServant) api.Pub {

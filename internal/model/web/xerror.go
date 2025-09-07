@@ -33,6 +33,7 @@ var (
 	ErrNoExistUsername         = xerror.NewError(20021, "用户不存在")
 	ErrNoAdminPermission       = xerror.NewError(20022, "无管理权限")
 	ErrDisallowUserRegister    = xerror.NewError(20023, "系统不允许注册用户")
+	ErrGetUserFailed           = xerror.NewError(20024, "获取用户信息失败")
 
 	ErrGetPostsFailed          = xerror.NewError(30001, "获取动态列表失败")
 	ErrCreatePostFailed        = xerror.NewError(30002, "动态发布失败")
@@ -49,6 +50,7 @@ var (
 	ErrHighlightPostFailed     = xerror.NewError(30013, "动态设为亮点失败")
 	ErrGetPostsUnknowStyle     = xerror.NewError(30014, "使用未知样式参数获取动态列表")
 	ErrGetPostsNilUser         = xerror.NewError(30015, "使用游客账户获取动态详情失败")
+	ErrGetPostLocationFailed   = xerror.NewError(30016, "获取动态位置信息失败")
 
 	ErrGetCommentsFailed      = xerror.NewError(40001, "获取评论列表失败")
 	ErrCreateCommentFailed    = xerror.NewError(40002, "评论发布失败")
@@ -106,4 +108,9 @@ var (
 	ErrFileInvalidSize  = xerror.NewError(10202, "文件大小超限")
 
 	ErrNotImplemented = xerror.NewError(10501, "功能未实现")
+
+	ErrCreateRoomFailed   = xerror.NewError(10001, "创建房间失败")
+    ErrGetRoomsFailed     = xerror.NewError(10002, "获取房间列表失败")
+    ErrUpdateRoomFailed   = xerror.NewError(10003, "更新房间失败")
+    ErrRoomNotFound       = xerror.NewError(10004, "房间不存在")
 )

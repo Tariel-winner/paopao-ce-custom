@@ -218,7 +218,7 @@ func checkPostViewPermission(user *ms.User, post *ms.Post, ds core.DataService) 
 		return web.ErrNoPermission
 	}
 
-	if user.IsAdmin || user.ID == post.UserID {
+	if user.IsAdmin || user.ID == post.GetHostID() {
 		return nil
 	}
 
@@ -227,7 +227,7 @@ func checkPostViewPermission(user *ms.User, post *ms.Post, ds core.DataService) 
 	}
 
 	if post.Visibility == core.PostVisitFriend {
-		if !ds.IsFriend(post.UserID, user.ID) && !ds.IsFriend(user.ID, post.UserID) {
+		if !ds.IsFriend(post.GetHostID(), user.ID) && !ds.IsFriend(user.ID, post.GetHostID()) {
 			return web.ErrNoPermission
 		}
 	}

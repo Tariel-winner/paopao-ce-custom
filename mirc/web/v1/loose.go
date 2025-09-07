@@ -32,4 +32,7 @@ type Loose struct {
 
 	// TweetDetail 获取动态详情
 	TweetDetail func(Get, web.TweetDetailReq) web.TweetDetailResp `mir:"/post"`
+
+	// GetPostLocation 获取动态位置信息
+	GetPostLocation func(Get, web.PostLocationReq) web.PostLocationResp `mir:"/posts/{postId}/location"`
 }

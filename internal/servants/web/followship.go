@@ -5,6 +5,7 @@
 package web
 
 import (
+	"fmt"
 	"github.com/alimy/mir/v4"
 	"github.com/gin-gonic/gin"
 	api "github.com/rocboss/paopao-ce/auto/api/v1"
@@ -14,6 +15,7 @@ import (
 	"github.com/rocboss/paopao-ce/internal/servants/chain"
 	"github.com/rocboss/paopao-ce/pkg/xerror"
 	"github.com/sirupsen/logrus"
+	"github.com/rocboss/paopao-ce/internal/core/ms"
 )
 
 var (
@@ -104,6 +106,16 @@ func (s *followshipSrv) FollowUser(r *web.FollowUserReq) mir.Error {
 		logrus.Errorf("Ds.FollowUser err: %s userId: %d followId: %d", err, r.User.ID, r.UserId)
 		return web.ErrUnfollowUserFailed
 	}
+	
+	// Create follow notification message
+	onCreateMessageEvent(&ms.Message{
+		SenderUserID:   r.User.ID,
+		ReceiverUserID: r.UserId,
+		Type:           ms.MsgTypeFollow,
+		Brief:          "关注了你",
+		Content:        fmt.Sprintf("用户 %s 关注了你", r.User.Username),
+	})
+	
 	// 触发缓存更新事件
 	// TODO: 合并成一个事件
 	cache.OnCacheMyFollowIdsEvent(s.Ds, r.User.ID)

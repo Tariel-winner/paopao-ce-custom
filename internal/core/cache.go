@@ -106,6 +106,13 @@ type AppCache interface {
 	DelAny(pattern string) error
 	Exist(key string) bool
 	Keys(pattern string) ([]string, error)
+	
+	// BatchCheckOnlineUsers checks multiple user online statuses in a single Redis call
+	BatchCheckOnlineUsers(userIDs []int64) (map[int64]bool, error)
+	GetOnlineUsersWithCursor(cursor uint64, limit int) ([]int64, map[int64]string, uint64, error)
+	GetOnlineUsersCount() (int64, error)
+	
+	
 }
 
 type WebCache interface {

@@ -40,8 +40,8 @@ func (s *tweetSearchFilter) filterResp(user *ms.User, resp *core.QueryResp) {
 		friendFilter[user.ID] = types.Empty{}
 		for i := 0; i <= latestIndex; i++ {
 			item = items[i]
-			cutFriend = (item.Visibility == core.PostVisitFriend && !friendFilter.IsFriend(item.UserID))
-			cutPrivate = (item.Visibility == core.PostVisitPrivate && user.ID != item.UserID)
+			cutFriend = (item.Visibility == core.PostVisitFriend && !friendFilter.IsFriend(item.GetHostID()))
+			cutPrivate = (item.Visibility == core.PostVisitPrivate && user.ID != item.GetHostID())
 			if cutFriend || cutPrivate {
 				items[i] = items[latestIndex]
 				items = items[:latestIndex]
