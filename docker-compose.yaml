@@ -144,7 +144,7 @@ services:
       args:
         - API_HOST=backend:8008
         - USE_API_HOST=yes
-        - EMBED_UI=yes
+        - EMBED_UI=no
         - USE_DIST=no
     restart: always
     depends_on:
