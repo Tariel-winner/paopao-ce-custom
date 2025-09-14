@@ -47,13 +47,17 @@ func (d *roomDao) CreateRoom(room *dbr.Room) error {
     logrus.WithFields(logrus.Fields{
         "room": room,
     }).Info("Creating room in database")
-    _, err := room.Create(d.db)
+    createdRoom, err := room.Create(d.db)
     if err != nil {
         logrus.WithError(err).WithFields(logrus.Fields{
             "room": room,
         }).Error("Failed to create room in database")
         return err
     }
+    // Update the original room object with the generated ID and timestamps
+    room.ID = createdRoom.ID
+    room.CreatedOn = createdRoom.CreatedOn
+    room.ModifiedOn = createdRoom.ModifiedOn
     logrus.WithFields(logrus.Fields{
         "room": room,
     }).Info("Successfully created room in database")
@@ -307,8 +311,14 @@ func (s *roomSrv) CreateRoom(room *ms.Room) error {
         return err
     }
     
+    // Update the original room object with the generated ID and timestamps
+    room.ID = dbrRoom.ID
+    room.CreatedOn = dbrRoom.CreatedOn
+    room.ModifiedOn = dbrRoom.ModifiedOn
+    
     logrus.WithFields(logrus.Fields{
         "dbr_room": dbrRoom,
+        "original_room_id": room.ID,
     }).Info("Successfully created room in service layer")
     return nil
 }

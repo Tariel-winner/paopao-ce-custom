@@ -28,6 +28,7 @@ type UserProfile = cs.UserProfile
 type UserProfileWithFollow = cs.UserProfileWithFollow
 type UserFormated = ms.UserFormated
 type UserReactionWithUser = ms.UserReactionWithUser
+type LocationData = ms.LocationData
 
 type ChangeAvatarReq struct {
 	BaseInfo `json:"-" binding:"-"`

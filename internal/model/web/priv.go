@@ -55,6 +55,8 @@ type PostContentItem struct {
 	Size     string `json:"size"`
 }
 
+	// LocationData is now defined in ms package
+
 	type CreateTweetReq struct {
 		BaseInfo        `json:"-" binding:"-"`
 		Contents        []*PostContentItem `json:"contents" binding:"required"`
@@ -65,9 +67,40 @@ type PostContentItem struct {
 		ClientIP        string             `json:"-" binding:"-"`
 		RoomID          string             `json:"room_id"`
 		SessionID       string             `json:"session_id"`
+		// Location data from iOS
+		LocationData    *LocationData      `json:"locationData"`
 	}
 
 type CreateTweetResp ms.PostFormated
+
+// UpdateUserLocationReq represents a request to update user location in Redis
+type UpdateUserLocationReq struct {
+	BaseInfo     `json:"-" binding:"-"`
+	LocationData *LocationData `json:"locationData" binding:"required"`
+}
+
+// Bind method for UpdateUserLocationReq
+func (r *UpdateUserLocationReq) Bind(c *gin.Context) mir.Error {
+	user, exist := base.UserFrom(c)
+	if !exist {
+		return xerror.UnauthorizedAuthNotExist
+	}
+	r.BaseInfo = BaseInfo{
+		User: user,
+	}
+	
+	// Bind JSON body
+	if err := c.ShouldBindJSON(r); err != nil {
+		return mir.NewError(xerror.InvalidParams.StatusCode(), xerror.InvalidParams.WithDetails(err.Error()))
+	}
+	
+	return nil
+}
+
+type UpdateUserLocationResp struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
 
 type DeleteTweetReq struct {
 	BaseInfo `json:"-" binding:"-"`

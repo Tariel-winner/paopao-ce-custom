@@ -289,6 +289,25 @@ func (s *privSrv) CreateTweet(req *web.CreateTweetReq) (_ *web.CreateTweetResp, 
 		userIDs = append(userIDs, visitorID)
 	}
 	logrus.Infof("Creating post with UserID array: %v", userIDs)
+	
+	// Handle location data from iOS
+	var locationName, locationAddress, locationCity, locationState, locationCountry string
+	var locationLat, locationLng float64
+	
+	logrus.Infof("DEBUG: req.LocationData = %+v", req.LocationData)
+	if req.LocationData != nil {
+		locationName = req.LocationData.Name
+		locationLat = req.LocationData.Lat
+		locationLng = req.LocationData.Lng
+		locationAddress = req.LocationData.Address
+		locationCity = req.LocationData.City
+		locationState = req.LocationData.State
+		locationCountry = req.LocationData.Country
+		logrus.Infof("Location data from iOS: name=%s, lat=%f, lng=%f, city=%s, country=%s", 
+			locationName, locationLat, locationLng, locationCity, locationCountry)
+	} else {
+		logrus.Infof("No location data provided from iOS, using IP-based location")
+	}
 
 	post := &ms.Post{
 		UserID:          userIDs,
@@ -299,8 +318,19 @@ func (s *privSrv) CreateTweet(req *web.CreateTweetReq) (_ *web.CreateTweetResp, 
 		Visibility:      ms.PostVisibleT(req.Visibility.ToVisibleValue()),
 		RoomID:          req.RoomID,
 		SessionID:       req.SessionID,
+		// Location fields from iOS request
+		LocationName:    locationName,
+		LocationLat:     locationLat,
+		LocationLng:     locationLng,
+		LocationAddress: locationAddress,
+		LocationCity:    locationCity,
+		LocationState:   locationState,
+		LocationCountry: locationCountry,
 	}
-	logrus.Debugf("DEBUG CreateTweet: post=%+v", post)
+	
+	logrus.Infof("DEBUG: Post location fields before saving: name=%s, lat=%f, lng=%f, city=%s, country=%s", 
+		post.LocationName, post.LocationLat, post.LocationLng, post.LocationCity, post.LocationCountry)
+	
 	logrus.Debugf("DEBUG CreateTweet: user_ids=%v (type: %T)", post.UserID, post.UserID)
 	logrus.Debugf("DEBUG CreateTweet: model=%+v", post.Model)
 

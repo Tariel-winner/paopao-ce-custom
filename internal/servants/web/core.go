@@ -1158,7 +1158,59 @@ func (s *coreSrv) getReactionDetails(reactionTypeID int64) (name, icon string) {
 	return cs.GetReactionName(reactionTypeID), cs.GetReactionIcon(reactionTypeID)
 }
 
+// UpdateUserLocation implements LocationService interface - directly updates Redis
+func (s *coreSrv) UpdateUserLocation(userID int64, locationData *web.LocationData) error {
+	if locationData == nil {
+		return fmt.Errorf("location data cannot be nil")
+	}
+	
+	// Format location data as string (country|city or just country)
+	locationStr := locationData.Country
+	if locationData.City != "" {
+		locationStr = locationData.Country + "|" + locationData.City
+	}
+	
+	// Set location in Redis with 24 hour expiration (same as online status)
+	expire := int64(24 * 60 * 60) // 24 hours in seconds
+	err := s.wc.SetUserLocation(userID, locationStr, expire)
+	if err != nil {
+		logrus.WithError(err).WithField("user_id", userID).Error("Failed to update user location in Redis")
+		return err
+	}
+	
+	logrus.WithFields(logrus.Fields{
+		"user_id": userID,
+		"location": locationStr,
+		"country": locationData.Country,
+		"city": locationData.City,
+	}).Info("Successfully updated user location in Redis")
+	
+	return nil
+}
 
+// UpdateUserLocationAPI implements the API endpoint for updating user location
+func (s *coreSrv) UpdateUserLocationAPI(req *web.UpdateUserLocationReq) (*web.UpdateUserLocationResp, mir.Error) {
+	if req.User == nil {
+		return nil, web.ErrGetUserFailed
+	}
+	
+	userID := req.User.ID
+	if userID <= 0 {
+		return nil, web.ErrGetUserFailed
+	}
+	
+	// Update location in Redis using LocationService
+	err := s.UpdateUserLocation(userID, req.LocationData)
+	if err != nil {
+		logrus.WithError(err).WithField("user_id", userID).Error("Failed to update user location")
+		return nil, web.ErrUpdateUserLocationFailed
+	}
+	
+	return &web.UpdateUserLocationResp{
+		Success: true,
+		Message: "Location updated successfully",
+	}, nil
+}
 
 func newCoreSrv(s *base.DaoServant, oss core.ObjectStorageService, wc core.WebCache) api.Core {
 	cs := conf.CacheSetting

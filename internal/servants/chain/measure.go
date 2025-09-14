@@ -15,8 +15,7 @@ func OnlineUserMeasure() gin.HandlerFunc {
 		c.Next()
 		// 更新用户在线状态和位置信息
 		if uid, ok := base.UserIdFrom(c); ok {
-			clientIP := c.ClientIP() // 获取客户端IP地址
-			OnUserOnlineMetric(_ac, uid, clientIP)
+			OnUserOnlineMetric(_ac, uid)
 		}
 	}
 }

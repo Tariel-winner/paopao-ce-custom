@@ -82,10 +82,9 @@ services:
     restart: always
     ports:
       - 8088:8088
-    environment:
-      - GORUSH_CORE_ENGINE=redis
-      - GORUSH_CORE_REDIS_ADDR=redis:6379
-      - GORUSH_CORE_REDIS_DB=1
+    volumes:
+      - ./gorush-config.yml:/etc/gorush/config.yml
+      - ./custom/gorush:/etc/gorush
     depends_on:
       - redis
     networks:
@@ -152,7 +151,7 @@ services:
       - db
       - redis
       - meili
-      - gorush
+     #   - gorush
     volumes:
       - ./config.yaml:/app/paopao-ce/config.yaml
       - ./custom:/app/paopao-ce/custom

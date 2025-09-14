@@ -25,6 +25,17 @@ const (
 type PostByMedia = Post
 
 type PostByComment = Post
+
+// LocationData represents location information from iOS
+type LocationData struct {
+	Name    string  `json:"name"`
+	Lat     float64 `json:"lat"`
+	Lng     float64 `json:"lng"`
+	Address string  `json:"address"`
+	City    string  `json:"city"`
+	State   string  `json:"state"`
+	Country string  `json:"country"`
+}
  
 type Post struct {
 	*Model
@@ -44,6 +55,14 @@ type Post struct {
 	IPLoc           string       `json:"ip_loc"`
 	RoomID          string       `json:"room_id"`
 	SessionID       string       `json:"session_id"`
+	// Location fields
+	LocationName    string  `json:"location_name"`
+	LocationLat     float64 `json:"location_lat"`
+	LocationLng     float64 `json:"location_lng"`
+	LocationAddress string  `json:"location_address"`
+	LocationCity    string  `json:"location_city"`
+	LocationState   string  `json:"location_state"`
+	LocationCountry string  `json:"location_country"`
 }
 
 type PostFormated struct {
@@ -68,6 +87,14 @@ type PostFormated struct {
 	IPLoc           string                 `json:"ip_loc"`
 	RoomID          string                 `json:"room_id"`
 	SessionID       string                 `json:"session_id"`
+	// Location fields
+	LocationName    string  `json:"location_name"`
+	LocationLat     float64 `json:"location_lat"`
+	LocationLng     float64 `json:"location_lng"`
+	LocationAddress string  `json:"location_address"`
+	LocationCity    string  `json:"location_city"`
+	LocationState   string  `json:"location_state"`
+	LocationCountry string  `json:"location_country"`
 }
 
 func (t PostVisibleT) ToOutValue() (res uint8) {
@@ -128,6 +155,14 @@ func (p *Post) Format() *PostFormated {
 			IPLoc:           p.IPLoc,
 			RoomID:          p.RoomID,
 			SessionID:       p.SessionID,
+			// Location fields
+			LocationName:    p.LocationName,
+			LocationLat:     p.LocationLat,
+			LocationLng:     p.LocationLng,
+			LocationAddress: p.LocationAddress,
+			LocationCity:    p.LocationCity,
+			LocationState:   p.LocationState,
+			LocationCountry: p.LocationCountry,
 		}
 	}
 
@@ -139,6 +174,8 @@ func (p *Post) Create(db *gorm.DB) (*Post, error) {
 	logrus.Debugf("DEBUG Create: post=%+v", p)
 	logrus.Debugf("DEBUG Create: user_ids=%v (type: %T)", p.UserID, p.UserID)
 	logrus.Debugf("DEBUG Create: model=%+v", p.Model)
+	logrus.Infof("DEBUG Create: Location fields - name=%s, lat=%f, lng=%f, city=%s, country=%s", 
+		p.LocationName, p.LocationLat, p.LocationLng, p.LocationCity, p.LocationCountry)
 
 	err := db.Create(&p).Error
 	if err != nil {
@@ -147,6 +184,8 @@ func (p *Post) Create(db *gorm.DB) (*Post, error) {
 	}
 
 	logrus.Debugf("DEBUG Create Success: created post=%+v", p)
+	logrus.Infof("DEBUG Create Success: Location fields after save - name=%s, lat=%f, lng=%f, city=%s, country=%s", 
+		p.LocationName, p.LocationLat, p.LocationLng, p.LocationCity, p.LocationCountry)
 	return p, nil
 }
 

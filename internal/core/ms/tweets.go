@@ -40,4 +40,5 @@ type (
 	AttachmentType     = dbr.AttachmentType
 	PostContentT       = dbr.PostContentT
 	PostVisibleT       = dbr.PostVisibleT
+	LocationData       = dbr.LocationData
 )

@@ -282,6 +282,31 @@ func (s *appCache) GetOnlineUsersCount() (int64, error) {
 	return totalCount, nil
 }
 
+// SetUserLocation sets user location data in Redis
+func (s *appCache) SetUserLocation(userID int64, locationData string, expire int64) error {
+	ctx := context.Background()
+	key := conf.KeyUserLocation.Get(userID)
+	cmd := s.c.B().Set().Key(key).Value(locationData)
+	if expire > 0 {
+		return s.c.Do(ctx, cmd.ExSeconds(expire).Build()).Error()
+	}
+	return s.c.Do(ctx, cmd.Build()).Error()
+}
+
+// GetUserLocation gets user location data from Redis
+func (s *appCache) GetUserLocation(userID int64) (string, error) {
+	ctx := context.Background()
+	key := conf.KeyUserLocation.Get(userID)
+	cmd := s.c.B().Get().Key(key).Build()
+	res, err := s.c.Do(ctx, cmd).AsStrSlice()
+	if err != nil {
+		return "", err
+	}
+	if len(res) > 0 {
+		return res[0], nil
+	}
+	return "", nil
+}
 
 func newWebCache(ac core.AppCache) *webCache {
 	return &webCache{

@@ -1,4 +1,4 @@
-#!/bin/bash
+ h#!/bin/bash
 set -e
 
 # Function to insert a batch of posts

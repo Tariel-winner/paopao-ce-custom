@@ -1,0 +1,110 @@
+core:
+  enabled: true
+  address: ""
+  shutdown_timeout: 30
+  port: "8088"
+  worker_num: 0
+  queue_num: 0
+  max_notification: 100
+  sync: false
+  feedback_hook_url: ""
+  feedback_timeout: 10
+  feedback_header: []
+  mode: "release"
+  ssl: false
+  cert_path: "cert.pem"
+  key_path: "key.pem"
+  cert_base64: ""
+  key_base64: ""
+  http_proxy: ""
+  pid:
+    enabled: false
+    path: "gorush.pid"
+    override: true
+  auto_tls:
+    enabled: false
+    folder: ".cache"
+    host: ""
+
+grpc:
+  enabled: false
+  port: 9000
+
+api:
+  push_uri: "/api/push"
+  stat_go_uri: "/api/stat/go"
+  stat_app_uri: "/api/stat/app"
+  config_uri: "/api/config"
+  sys_stat_uri: "/sys/stats"
+  metric_uri: "/metrics"
+  health_uri: "/healthz"
+
+android:
+  enabled: false
+  key_path: "key.json"
+  credential: "CREDENTIAL_JSON_DATA"
+  max_retry: 0
+
+huawei:
+  enabled: false
+  appsecret: "YOUR_APP_SECRET"
+  appid: "YOUR_APP_ID"
+  max_retry: 0
+
+queue:
+  engine: "redis"
+  nsq:
+    addr: 127.0.0.1:4150
+    topic: gorush
+    channel: gorush
+  nats:
+    addr: 127.0.0.1:4222
+    subj: gorush
+    queue: gorush
+  redis:
+    addr: redis:6379
+    group: gorush
+    consumer: gorush
+    stream_name: gorush
+    username: ""
+    password: ""
+    with_tls: false
+
+ios:
+  enabled: true
+  key_path: "/etc/gorush/apns-key.p8"
+  key_base64: ""
+  key_type: "p8"
+  password: ""
+  production: false
+  max_concurrent_pushes: 100
+  max_retry: 0
+  key_id: "your-key-id"
+  team_id: "your-team-id"
+
+log:
+  format: "string"
+  access_log: "stdout"
+  access_level: "debug"
+  error_log: "stderr"
+  error_level: "error"
+  hide_token: true
+  hide_messages: false
+
+stat:
+  engine: "redis"
+  redis:
+    cluster: false
+    addr: "redis:6379"
+    username: ""
+    password: ""
+    db: 1
+  boltdb:
+    path: "bolt.db"
+    bucket: "gorush"
+  buntdb:
+    path: "bunt.db"
+  leveldb:
+    path: "level.db"
+  badgerdb:
+    path: "badger.db"

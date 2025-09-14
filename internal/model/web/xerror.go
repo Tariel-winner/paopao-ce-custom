@@ -34,6 +34,7 @@ var (
 	ErrNoAdminPermission       = xerror.NewError(20022, "无管理权限")
 	ErrDisallowUserRegister    = xerror.NewError(20023, "系统不允许注册用户")
 	ErrGetUserFailed           = xerror.NewError(20024, "获取用户信息失败")
+	ErrUpdateUserLocationFailed = xerror.NewError(20025, "更新用户位置失败")
 
 	ErrGetPostsFailed          = xerror.NewError(30001, "获取动态列表失败")
 	ErrCreatePostFailed        = xerror.NewError(30002, "动态发布失败")

@@ -35,6 +35,7 @@ type Core interface {
 	GetMessages(*web.GetMessagesReq) (*web.GetMessagesResp, mir.Error)
 	GetUserInfo(*web.UserInfoReq) (*web.UserInfoResp, mir.Error)
 	GetUserOnlineStatus(*web.UserOnlineStatusReq) (*web.UserOnlineStatusResp, mir.Error) // Added this line
+	UpdateUserLocationAPI(*web.UpdateUserLocationReq) (*web.UpdateUserLocationResp, mir.Error)
 	GetCentrifugoToken(*web.CentrifugoTokenReq) (*web.CentrifugoTokenResp, mir.Error)
 	SyncSearchIndex(*web.SyncSearchIndexReq) mir.Error
 
@@ -301,6 +302,21 @@ func RegisterCoreServant(e *gin.Engine, s Core) {
 			return
 		}
 		resp, err := s.GetUserOnlineStatus(req)
+		s.Render(c, resp, err)
+	})
+	router.Handle("POST", "/user/location", func(c *gin.Context) {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+		}
+		req := new(web.UpdateUserLocationReq)
+		var bv _binding_ = req
+		if err := bv.Bind(c); err != nil {
+			s.Render(c, nil, err)
+			return
+		}
+		resp, err := s.UpdateUserLocationAPI(req)
 		s.Render(c, resp, err)
 	})
 	router.Handle("GET", "/centrifugo/token", func(c *gin.Context) {
@@ -649,6 +665,11 @@ func (UnimplementedCoreServant) GetUserInfo(req *web.UserInfoReq) (*web.UserInfo
 func (UnimplementedCoreServant) GetUserOnlineStatus(req *web.UserOnlineStatusReq) (*web.UserOnlineStatusResp, mir.Error) {
 	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
 }
+
+func (UnimplementedCoreServant) UpdateUserLocationAPI(req *web.UpdateUserLocationReq) (*web.UpdateUserLocationResp, mir.Error) {
+	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
+}
+
 
 func (UnimplementedCoreServant) GetCentrifugoToken(req *web.CentrifugoTokenReq) (*web.CentrifugoTokenResp, mir.Error) {
 	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))

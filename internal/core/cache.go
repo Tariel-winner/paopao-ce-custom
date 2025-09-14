@@ -112,6 +112,10 @@ type AppCache interface {
 	GetOnlineUsersWithCursor(cursor uint64, limit int) ([]int64, map[int64]string, uint64, error)
 	GetOnlineUsersCount() (int64, error)
 	
+	// Location management
+	SetUserLocation(userID int64, locationData string, expire int64) error
+	GetUserLocation(userID int64) (string, error)
+	
 	
 }
 
