@@ -169,7 +169,7 @@ Postgres: # PostgreSQL数据库
   User: paopao
   Password: paopao
   DBName: paopao
-  Host: localhost
+  Host: db
   Port: 5432
   SSLMode: disable
   TimeZone: Asia/Shanghai
