@@ -137,6 +137,7 @@ services:
 
   
 
+
   backend:
     build:
       context: .
@@ -151,7 +152,7 @@ services:
       - db
       - redis
       - meili
-     #   - gorush
+      - gorush
     volumes:
       - ./config.yaml:/app/paopao-ce/config.yaml
       - ./custom:/app/paopao-ce/custom

@@ -72,15 +72,15 @@ queue:
 
 ios:
   enabled: true
-  key_path: "/etc/gorush/apns-key.p8"
+  key_path: "/etc/gorush/AuthKey_HHNRH8UHR4.p8"
   key_base64: ""
   key_type: "p8"
   password: ""
   production: false
   max_concurrent_pushes: 100
   max_retry: 0
-  key_id: "your-key-id"
-  team_id: "your-team-id"
+  key_id: "HHNRH8UHR4"
+  team_id: "KT8X8V5XXA"
 
 log:
   format: "string"
