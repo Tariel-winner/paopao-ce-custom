@@ -8,11 +8,21 @@ services:
       POSTGRES_DB: paopao
       POSTGRES_USER: paopao
       POSTGRES_PASSWORD: paopao
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
     volumes:
       - ./scripts/migration/postgres:/docker-entrypoint-initdb.d
       - ./custom/data/postgres/data:/var/lib/postgresql/data
     ports:
       - 5432:5432
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    command: postgres -c shared_buffers=256MB -c effective_cache_size=512MB -c maintenance_work_mem=64MB -c checkpoint_completion_target=0.9 -c wal_buffers=16MB -c default_statistics_target=100
     networks:
       - paopao-network
 
@@ -47,6 +57,15 @@ services:
       - 8001:8001
     environment:
       REDISEARCH_ARGS: "MAXSEARCHRESULTS 5"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 256M
+    command: redis-server --maxmemory 400mb --maxmemory-policy allkeys-lru --save 900 1 --save 300 10 --save 60 10000
     networks:
       - paopao-network
   
@@ -74,6 +93,14 @@ services:
       - ./custom/data/meili/data:/meili_data
     environment:
       - MEILI_MASTER_KEY=paopao-meilisearch
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.2'
+          memory: 256M
     networks:
       - paopao-network
 
@@ -85,6 +112,14 @@ services:
     volumes:
       - ./gorush-config.yml:/etc/gorush/config.yml
       - ./custom/gorush:/etc/gorush
+    deploy:
+      resources:
+        limits:
+          cpus: '0.4'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
     depends_on:
       - redis
     networks:
@@ -158,6 +193,14 @@ services:
       - ./custom:/app/paopao-ce/custom
     ports:
       - 8008:8008
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
     networks:
       - paopao-network
 
